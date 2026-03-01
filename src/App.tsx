@@ -7,9 +7,8 @@ import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Communities from "./pages/Communities";
-import Sports from "./pages/Sports";
-import SportDetail from "./pages/SportDetail";
-import Students from "./pages/Students";
+import CommunityDetail from "./pages/CommunityDetail";
+import StudentDetail from "./pages/StudentDetail";
 import Payments from "./pages/Payments";
 import Coaches from "./pages/Coaches";
 import Settings from "./pages/Settings";
@@ -29,9 +28,8 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/communities" element={<Communities />} />
-            <Route path="/sports" element={<Sports />} />
-            <Route path="/sports/:id" element={<SportDetail />} />
-            <Route path="/students" element={<Students />} />
+            <Route path="/communities/:id" element={<CommunityDetail />} />
+            <Route path="/students/:id" element={<StudentDetail />} />
             <Route path="/payments" element={<Payments />} />
             <Route path="/coaches" element={<Coaches />} />
             <Route path="/settings" element={<Settings />} />
