@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Communities from "./pages/Communities";
 import Sports from "./pages/Sports";
+import SportDetail from "./pages/SportDetail";
 import Students from "./pages/Students";
 import Payments from "./pages/Payments";
 import Coaches from "./pages/Coaches";
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/communities" element={<Communities />} />
             <Route path="/sports" element={<Sports />} />
+            <Route path="/sports/:id" element={<SportDetail />} />
             <Route path="/students" element={<Students />} />
             <Route path="/payments" element={<Payments />} />
             <Route path="/coaches" element={<Coaches />} />
