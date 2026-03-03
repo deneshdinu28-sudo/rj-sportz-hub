@@ -1,83 +1,60 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
-const MOCK_USER = {
-  email: "admin@rjsportz.com",
-  password: "Admin@2026",
-  role: "admin",
-  name: "Admin User",
-};
-
-const Login = () => {
+export default function Login() {
   const navigate = useNavigate();
+  const { signIn, signUp } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  useEffect(() => {
-    const user = localStorage.getItem("rjsportz_user");
-    if (user) navigate("/dashboard", { replace: true });
-  }, [navigate]);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const isValidEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  const isFormValid = isValidEmail(email) && password.length >= 6;
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setSuccess("");
-
-    if (!isValidEmail(email)) {
-      setError("Please enter a valid email address");
-      return;
-    }
-    if (!password) {
-      setError("Password cannot be empty");
-      return;
-    }
+    if (!isFormValid) return;
 
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-
-    if (email === MOCK_USER.email && password === MOCK_USER.password) {
-      const userData = { email: MOCK_USER.email, role: MOCK_USER.role, name: MOCK_USER.name };
-      localStorage.setItem("rjsportz_user", JSON.stringify(userData));
-      if (rememberMe) localStorage.setItem("rjsportz_remember", "true");
-      setSuccess("Login successful! Redirecting...");
-      setTimeout(() => navigate("/dashboard"), 800);
+    const fn = isSignUp ? signUp : signIn;
+    const { error } = await fn(email, password);
+    
+    if (error) {
+      setError(error);
     } else {
-      setError("Invalid email or password");
+      navigate("/dashboard", { replace: true });
     }
     setIsLoading(false);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-8">
-        {/* Logo */}
+      <div className="w-full max-w-[400px] space-y-8">
         <div className="text-center space-y-2">
+          <div className="text-5xl mb-2">🏸</div>
           <h1 className="text-4xl font-extrabold tracking-tight">
-            🏸 RJ <span className="text-primary neon-text">SPORTZ</span>
+            RJ <span className="text-primary neon-text">SPORTZ</span>
           </h1>
           <p className="text-muted-foreground text-sm tracking-widest uppercase">
             Where Champions Are Made
           </p>
         </div>
 
-        {/* Form Card */}
         <form
-          onSubmit={handleLogin}
+          onSubmit={handleSubmit}
           className="space-y-5 bg-card p-8 rounded-xl border border-border shadow-lg shadow-primary/5"
         >
-          {/* Email */}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -91,7 +68,6 @@ const Login = () => {
             />
           </div>
 
-          {/* Password */}
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <div className="relative">
@@ -100,6 +76,7 @@ const Login = () => {
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter password"
                 required
+                minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="bg-secondary border-border focus-visible:ring-primary pr-10"
@@ -115,7 +92,6 @@ const Login = () => {
             </div>
           </div>
 
-          {/* Remember Me */}
           <div className="flex items-center gap-2">
             <Checkbox
               id="remember"
@@ -127,39 +103,36 @@ const Login = () => {
             </Label>
           </div>
 
-          {/* Error / Success */}
           {error && (
             <p className="text-sm text-destructive text-center font-medium">{error}</p>
           )}
-          {success && (
-            <p className="text-sm text-primary neon-text text-center font-medium">{success}</p>
-          )}
 
-          {/* Submit */}
-          <Button type="submit" className="w-full neon-glow font-bold tracking-wider" disabled={isLoading}>
+          <Button
+            type="submit"
+            className="w-full neon-glow font-bold tracking-wider"
+            disabled={isLoading || !isFormValid}
+          >
             {isLoading ? (
               <>
-                <Loader2 className="animate-spin" />
-                Logging in...
+                <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                {isSignUp ? "Creating account..." : "Logging in..."}
               </>
             ) : (
-              "LOGIN"
+              <>{isSignUp ? "SIGN UP" : "LOGIN"} →</>
             )}
           </Button>
 
-          {/* Forgot Password */}
-          <p className="text-center">
+          <div className="text-center space-y-2">
             <button
               type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
               className="text-xs text-muted-foreground hover:text-primary transition-colors"
             >
-              Forgot Password?
+              {isSignUp ? "Already have an account? Login" : "Don't have an account? Sign Up"}
             </button>
-          </p>
+          </div>
         </form>
       </div>
     </div>
   );
-};
-
-export default Login;
+}
