@@ -14,7 +14,238 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      communities: {
+        Row: {
+          address: string
+          contact_person: string
+          contact_phone: string
+          created_at: string
+          id: string
+          name: string
+          pricing: Json
+          short_code: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string
+          contact_person?: string
+          contact_phone?: string
+          created_at?: string
+          id?: string
+          name: string
+          pricing?: Json
+          short_code: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          contact_person?: string
+          contact_phone?: string
+          created_at?: string
+          id?: string
+          name?: string
+          pricing?: Json
+          short_code?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          payment_date: string
+          payment_mode: string
+          period_end: string | null
+          period_start: string | null
+          plan_period: string
+          student_id: string
+          transaction_id: string | null
+          verification_method: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          payment_date?: string
+          payment_mode?: string
+          period_end?: string | null
+          period_start?: string | null
+          plan_period?: string
+          student_id: string
+          transaction_id?: string | null
+          verification_method?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_date?: string
+          payment_mode?: string
+          period_end?: string | null
+          period_start?: string | null
+          plan_period?: string
+          student_id?: string
+          transaction_id?: string | null
+          verification_method?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sports: {
+        Row: {
+          active_days: string[]
+          coach_name: string
+          coach_phone: string
+          community_id: string
+          created_at: string
+          icon: string
+          id: string
+          name: string
+          premium_fee: number
+          standard_fee: number
+          time_slots: string[]
+          updated_at: string
+        }
+        Insert: {
+          active_days?: string[]
+          coach_name?: string
+          coach_phone?: string
+          community_id: string
+          created_at?: string
+          icon?: string
+          id?: string
+          name: string
+          premium_fee?: number
+          standard_fee?: number
+          time_slots?: string[]
+          updated_at?: string
+        }
+        Update: {
+          active_days?: string[]
+          coach_name?: string
+          coach_phone?: string
+          community_id?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          name?: string
+          premium_fee?: number
+          standard_fee?: number
+          time_slots?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sports_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          age: number
+          age_group: string
+          batch_time: string
+          batch_type: string
+          community_id: string
+          created_at: string
+          fee_amount: number
+          fee_status: string
+          id: string
+          is_active: boolean
+          joining_date: string
+          name: string
+          next_due_date: string | null
+          parent_name: string
+          parent_phone: string
+          parent_whatsapp: string
+          payment_end_date: string | null
+          payment_plan: string
+          payment_start_date: string | null
+          sport_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          age?: number
+          age_group?: string
+          batch_time?: string
+          batch_type?: string
+          community_id: string
+          created_at?: string
+          fee_amount?: number
+          fee_status?: string
+          id?: string
+          is_active?: boolean
+          joining_date?: string
+          name: string
+          next_due_date?: string | null
+          parent_name?: string
+          parent_phone?: string
+          parent_whatsapp?: string
+          payment_end_date?: string | null
+          payment_plan?: string
+          payment_start_date?: string | null
+          sport_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          age?: number
+          age_group?: string
+          batch_time?: string
+          batch_type?: string
+          community_id?: string
+          created_at?: string
+          fee_amount?: number
+          fee_status?: string
+          id?: string
+          is_active?: boolean
+          joining_date?: string
+          name?: string
+          next_due_date?: string | null
+          parent_name?: string
+          parent_phone?: string
+          parent_whatsapp?: string
+          payment_end_date?: string | null
+          payment_plan?: string
+          payment_start_date?: string | null
+          sport_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

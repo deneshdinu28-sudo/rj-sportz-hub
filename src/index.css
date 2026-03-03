@@ -9,7 +9,7 @@
     --background: 0 0% 4%;
     --foreground: 0 0% 100%;
 
-    --card: 0 0% 15%;
+    --card: 0 0% 10%;
     --card-foreground: 0 0% 100%;
 
     --popover: 0 0% 10%;
@@ -33,11 +33,14 @@
     --warning: 43 96% 56%;
     --warning-foreground: 0 0% 4%;
 
-    --success: 110 100% 55%;
-    --success-foreground: 0 0% 4%;
+    --success: 152 76% 46%;
+    --success-foreground: 0 0% 100%;
 
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
     --ring: 110 100% 55%;
 
     --radius: 0.75rem;
@@ -51,8 +54,7 @@
     --sidebar-border: 0 0% 14%;
     --sidebar-ring: 110 100% 55%;
 
-    --neon-glow: 0 0 8px hsl(110 100% 55% / 0.4), 0 0 20px hsl(110 100% 55% / 0.15);
-    --neon-glow-strong: 0 0 12px hsl(110 100% 55% / 0.6), 0 0 30px hsl(110 100% 55% / 0.25);
+    --surface: 0 0% 10%;
   }
 }
 
@@ -60,7 +62,6 @@
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
@@ -68,12 +69,19 @@
 
 @layer utilities {
   .neon-glow {
-    box-shadow: var(--neon-glow);
+    box-shadow: 0 0 8px hsl(110 100% 55% / 0.4), 0 0 20px hsl(110 100% 55% / 0.15);
   }
   .neon-glow-strong {
-    box-shadow: var(--neon-glow-strong);
+    box-shadow: 0 0 12px hsl(110 100% 55% / 0.6), 0 0 30px hsl(110 100% 55% / 0.25);
   }
   .neon-text {
     text-shadow: 0 0 8px hsl(110 100% 55% / 0.5);
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
