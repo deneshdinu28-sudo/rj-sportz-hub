@@ -11,6 +11,7 @@ import Communities from "./pages/Communities";
 import CommunityDetail from "./pages/CommunityDetail";
 import StudentDetail from "./pages/StudentDetail";
 import Payments from "./pages/Payments";
+import Attendance from "./pages/Attendance";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -32,6 +33,7 @@ const App = () => (
               <Route path="/communities/:id" element={<CommunityDetail />} />
               <Route path="/students/:id" element={<StudentDetail />} />
               <Route path="/payments" element={<Payments />} />
+              <Route path="/attendance" element={<Attendance />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />

@@ -1,6 +1,6 @@
-import { LayoutDashboard, Building2, CreditCard, Settings, LogOut, Zap } from "lucide-react";
+import { LayoutDashboard, Building2, CreditCard, Settings, LogOut, Zap, ClipboardList } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
@@ -20,13 +20,13 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Communities", url: "/communities", icon: Building2 },
   { title: "Payments", url: "/payments", icon: CreditCard },
+  { title: "Attendance", url: "/attendance", icon: ClipboardList },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
 
@@ -72,16 +72,9 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-border p-3">
         {!collapsed && user && (
-          <p className="text-xs text-muted-foreground truncate mb-2 px-2">
-            {user.email}
-          </p>
+          <p className="text-xs text-muted-foreground truncate mb-2 px-2">{user.email}</p>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleLogout}
-          className="w-full justify-start text-muted-foreground hover:text-destructive"
-        >
+        <Button variant="ghost" size="sm" onClick={handleLogout} className="w-full justify-start text-muted-foreground hover:text-destructive">
           <LogOut className="h-4 w-4 mr-2 shrink-0" />
           {!collapsed && "Logout"}
         </Button>

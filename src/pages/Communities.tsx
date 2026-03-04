@@ -10,8 +10,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { mockCommunities, mockSports, mockStudents, mockPayments, formatCurrency, formatCurrencyFull } from "@/lib/mock-data";
+import { mockCommunities, mockSports, mockStudents, mockPayments, mockGlobalSports, formatCurrency, formatCurrencyFull } from "@/lib/mock-data";
 import type { Community } from "@/types/database";
+
+interface SportPricingEntry {
+  sportId: string;
+  sportName: string;
+  sportIcon: string;
+  standard_1month: string;
+  standard_3months: string;
+  standard_6months: string;
+  premium_1month: string;
+  premium_3months: string;
+  premium_6months: string;
+}
 
 export default function Communities() {
   const navigate = useNavigate();
@@ -20,21 +32,25 @@ export default function Communities() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
   const [deleteCommunity, setDeleteCommunity] = useState<Community | null>(null);
-  const [formData, setFormData] = useState({
-    name: "", short_code: "", address: "", contact_person: "", contact_phone: "",
-    std_1m: "3500", std_3m: "10000", std_6m: "19000",
-    prm_1m: "5000", prm_3m: "14000", prm_6m: "27000",
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({ name: "", short_code: "", address: "", contact_person: "", contact_phone: "" });
+  const [sportPricings, setSportPricings] = useState<SportPricingEntry[]>([]);
+  const [addSportPricingOpen, setAddSportPricingOpen] = useState(false);
+  const [newSportPricing, setNewSportPricing] = useState<SportPricingEntry>({
+    sportId: "", sportName: "", sportIcon: "",
+    standard_1month: "3000", standard_3months: "8500", standard_6months: "16000",
+    premium_1month: "4500", premium_3months: "12500", premium_6months: "24000",
   });
+  const [isCustomSport, setIsCustomSport] = useState(false);
+  const [customSportName, setCustomSportName] = useState("");
+  const [customSportIcon, setCustomSportIcon] = useState("🏅");
 
-  const globalStats = useMemo(() => {
-    const totalRevenue = mockPayments.reduce((s, p) => s + p.amount, 0);
-    return {
-      communities: mockCommunities.length,
-      sports: mockSports.length,
-      students: mockStudents.length,
-      revenue: totalRevenue,
-    };
-  }, []);
+  const globalStats = useMemo(() => ({
+    communities: mockCommunities.length,
+    sports: mockSports.length,
+    students: mockStudents.length,
+    revenue: mockPayments.reduce((s, p) => s + p.amount, 0),
+  }), []);
 
   const filtered = useMemo(() => {
     let list = mockCommunities;
@@ -52,7 +68,7 @@ export default function Communities() {
     const payments = mockPayments.filter((p) => students.some((s) => s.id === p.student_id));
     const revenue = payments.reduce((s, p) => s + p.amount, 0);
     const paidPct = students.length ? (students.filter((s) => s.fee_status === "paid").length / students.length) * 100 : 0;
-    return { studentCount: students.length, sportCount: sports.length, revenue, paidPct, sports: sports.slice(0, 3) };
+    return { studentCount: students.length, sportCount: sports.length, revenue, paidPct };
   };
 
   const handleNameChange = (name: string) => {
@@ -60,8 +76,28 @@ export default function Communities() {
     setFormData((p) => ({ ...p, name, short_code: code }));
   };
 
+  const openAddCommunity = () => {
+    setFormData({ name: "", short_code: "", address: "", contact_person: "", contact_phone: "" });
+    setSportPricings([]);
+    setStep(1);
+    setAddOpen(true);
+  };
+
+  const handleAddSportPricing = () => {
+    const entry: SportPricingEntry = isCustomSport
+      ? { ...newSportPricing, sportId: `custom-${Date.now()}`, sportName: customSportName, sportIcon: customSportIcon }
+      : { ...newSportPricing };
+    setSportPricings((prev) => [...prev, entry]);
+    setAddSportPricingOpen(false);
+    setIsCustomSport(false);
+  };
+
+  const handleRemoveSportPricing = (idx: number) => {
+    setSportPricings((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const handleSave = () => {
-    toast({ title: "Community added!", description: formData.name });
+    toast({ title: "Community added!", description: `${formData.name} with ${sportPricings.length} sports` });
     setAddOpen(false);
   };
 
@@ -70,6 +106,8 @@ export default function Communities() {
     setDeleteCommunity(null);
   };
 
+  const availableSports = mockGlobalSports.filter((gs) => !sportPricings.some((sp) => sp.sportName === gs.name));
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -77,9 +115,7 @@ export default function Communities() {
           <h1 className="text-3xl font-bold">Communities Management</h1>
           <p className="text-muted-foreground text-sm">Manage all communities, sports, and students</p>
         </div>
-        <Button onClick={() => { setFormData({ name: "", short_code: "", address: "", contact_person: "", contact_phone: "", std_1m: "3500", std_3m: "10000", std_6m: "19000", prm_1m: "5000", prm_3m: "14000", prm_6m: "27000" }); setAddOpen(true); }} className="gap-2">
-          <Plus className="h-4 w-4" /> Add Community
-        </Button>
+        <Button onClick={openAddCommunity} className="gap-2"><Plus className="h-4 w-4" /> Add Community</Button>
       </div>
 
       {/* Global Stats */}
@@ -93,10 +129,7 @@ export default function Communities() {
           <Card key={i}>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10">{s.icon}</div>
-              <div>
-                <p className="text-2xl font-bold">{s.value}</p>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-              </div>
+              <div><p className="text-2xl font-bold">{s.value}</p><p className="text-xs text-muted-foreground">{s.label}</p></div>
             </CardContent>
           </Card>
         ))}
@@ -109,10 +142,7 @@ export default function Communities() {
           <Input placeholder="Search communities..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[160px]">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
+          <SelectTrigger className="w-[160px]"><Filter className="h-4 w-4 mr-2" /><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
             <SelectItem value="active">Active</SelectItem>
@@ -127,11 +157,7 @@ export default function Communities() {
           const cs = getCommStats(c);
           const health = cs.paidPct >= 90 ? "🟢" : cs.paidPct >= 70 ? "🟡" : "🔴";
           return (
-            <Card
-              key={c.id}
-              onClick={() => navigate(`/communities/${c.id}`)}
-              className="cursor-pointer hover:border-primary/50 transition-all duration-200 hover:shadow-[0_0_15px_hsl(110_100%_55%/0.1)] group"
-            >
+            <Card key={c.id} onClick={() => navigate(`/communities/${c.id}`)} className="cursor-pointer hover:border-primary/50 transition-all duration-200 hover:shadow-[0_0_15px_hsl(110_100%_55%/0.1)] group">
               <CardContent className="p-5 space-y-4">
                 <div className="flex items-start justify-between">
                   <div>
@@ -140,13 +166,10 @@ export default function Communities() {
                       <h3 className="font-bold text-lg group-hover:text-primary transition-colors">{c.name}</h3>
                       <span>{health}</span>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {c.short_code} • {c.address}
-                    </p>
+                    <p className="text-sm text-muted-foreground mt-0.5">{c.short_code} • {c.address}</p>
                   </div>
                   <Badge variant={c.status === "active" ? "default" : "secondary"}>{c.status}</Badge>
                 </div>
-
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { val: `👥 ${cs.studentCount}`, label: "Students" },
@@ -159,47 +182,116 @@ export default function Communities() {
                     </div>
                   ))}
                 </div>
-
-                <Button variant="ghost" size="sm" className="w-full" onClick={() => navigate(`/communities/${c.id}`)}>
-                  View Details →
-                </Button>
+                <Button variant="ghost" size="sm" className="w-full">View Details →</Button>
               </CardContent>
             </Card>
           );
         })}
       </div>
 
-      {/* Add Community Modal */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      {/* Add Community Modal - Step 1: Basic Info */}
+      <Dialog open={addOpen && step === 1} onOpenChange={(v) => { if (!v) setAddOpen(false); }}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-auto">
-          <DialogHeader>
-            <DialogTitle>Add New Community</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Add New Community</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div><Label>Community Name *</Label><Input value={formData.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="e.g. Waterford" /></div>
-            <div><Label>Short Code * (3 letters)</Label><Input value={formData.short_code} onChange={(e) => setFormData((p) => ({ ...p, short_code: e.target.value.toUpperCase().slice(0, 3) }))} placeholder="WTF" maxLength={3} /></div>
+            <div><Label>Community Name *</Label><Input value={formData.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="e.g. Waterford Apartments" /></div>
+            <div><Label>Short Code * (Auto-generated, editable)</Label><Input value={formData.short_code} onChange={(e) => setFormData((p) => ({ ...p, short_code: e.target.value.toUpperCase().slice(0, 3) }))} placeholder="WTF" maxLength={3} /></div>
             <div><Label>Address *</Label><Input value={formData.address} onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))} placeholder="HSR Layout, Bangalore" /></div>
             <div><Label>Contact Person</Label><Input value={formData.contact_person} onChange={(e) => setFormData((p) => ({ ...p, contact_person: e.target.value }))} placeholder="Mr. Sharma" /></div>
             <div><Label>Contact Phone</Label><Input value={formData.contact_phone} onChange={(e) => setFormData((p) => ({ ...p, contact_phone: e.target.value }))} placeholder="+91 9876543210" /></div>
-            <div className="border-t border-border pt-4">
-              <p className="text-sm font-semibold mb-3">Pricing Structure</p>
-              <p className="text-xs text-muted-foreground mb-2">Standard Batch:</p>
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                <div><Label className="text-xs">1 Month</Label><Input value={formData.std_1m} onChange={(e) => setFormData((p) => ({ ...p, std_1m: e.target.value }))} type="number" /></div>
-                <div><Label className="text-xs">3 Months</Label><Input value={formData.std_3m} onChange={(e) => setFormData((p) => ({ ...p, std_3m: e.target.value }))} type="number" /></div>
-                <div><Label className="text-xs">6 Months</Label><Input value={formData.std_6m} onChange={(e) => setFormData((p) => ({ ...p, std_6m: e.target.value }))} type="number" /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={() => setStep(2)} disabled={!formData.name || !formData.short_code || !formData.address}>Next: Set Pricing →</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Community Modal - Step 2: Sport Pricing */}
+      <Dialog open={addOpen && step === 2} onOpenChange={(v) => { if (!v) setAddOpen(false); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
+          <DialogHeader><DialogTitle>Set Pricing for {formData.name} ({formData.short_code})</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Add sports and set individual pricing</p>
+
+          <Button variant="outline" onClick={() => { setAddSportPricingOpen(true); setIsCustomSport(false); }} className="gap-2"><Plus className="h-4 w-4" /> Add Sport Pricing</Button>
+
+          <div className="space-y-3">
+            {sportPricings.map((sp, idx) => (
+              <div key={idx} className="p-4 rounded-lg border border-border bg-card">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-bold">{sp.sportIcon} {sp.sportName}</h4>
+                  <Button variant="ghost" size="sm" onClick={() => handleRemoveSportPricing(idx)} className="text-destructive h-7">×</Button>
+                </div>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>Standard: 1M ₹{sp.standard_1month} | 3M ₹{sp.standard_3months} | 6M ₹{sp.standard_6months}</p>
+                  <p>Premium: 1M ₹{sp.premium_1month} | 3M ₹{sp.premium_3months} | 6M ₹{sp.premium_6months}</p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mb-2">Premium Batch:</p>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStep(1)}>← Back</Button>
+            <Button onClick={handleSave}>Save Community →</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Sport Pricing Sub-Modal */}
+      <Dialog open={addSportPricingOpen} onOpenChange={setAddSportPricingOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-auto">
+          <DialogHeader><DialogTitle>Add Sport Pricing</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Select Sport *</Label>
+              <Select value={isCustomSport ? "__custom__" : newSportPricing.sportId} onValueChange={(v) => {
+                if (v === "__custom__") {
+                  setIsCustomSport(true);
+                  setNewSportPricing((p) => ({ ...p, sportId: "", sportName: "", sportIcon: "" }));
+                } else {
+                  setIsCustomSport(false);
+                  const gs = mockGlobalSports.find((g) => g.id === v);
+                  if (gs) setNewSportPricing((p) => ({ ...p, sportId: gs.id, sportName: gs.name, sportIcon: gs.icon }));
+                }
+              }}>
+                <SelectTrigger><SelectValue placeholder="Select sport" /></SelectTrigger>
+                <SelectContent>
+                  {availableSports.map((gs) => (
+                    <SelectItem key={gs.id} value={gs.id}>{gs.icon} {gs.name}</SelectItem>
+                  ))}
+                  <SelectItem value="__custom__">➕ Add Custom Sport</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {isCustomSport && (
+              <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
+                <div><Label>Custom Sport Name</Label><Input value={customSportName} onChange={(e) => setCustomSportName(e.target.value)} placeholder="Zumba" /></div>
+                <div><Label>Icon (emoji)</Label><Input value={customSportIcon} onChange={(e) => setCustomSportIcon(e.target.value)} placeholder="💃" /></div>
+              </div>
+            )}
+
+            <div className="border-t border-border pt-3">
+              <p className="text-sm font-semibold mb-3">STANDARD BATCH PRICING</p>
               <div className="grid grid-cols-3 gap-2">
-                <div><Label className="text-xs">1 Month</Label><Input value={formData.prm_1m} onChange={(e) => setFormData((p) => ({ ...p, prm_1m: e.target.value }))} type="number" /></div>
-                <div><Label className="text-xs">3 Months</Label><Input value={formData.prm_3m} onChange={(e) => setFormData((p) => ({ ...p, prm_3m: e.target.value }))} type="number" /></div>
-                <div><Label className="text-xs">6 Months</Label><Input value={formData.prm_6m} onChange={(e) => setFormData((p) => ({ ...p, prm_6m: e.target.value }))} type="number" /></div>
+                <div><Label className="text-xs">1 Month</Label><Input type="number" value={newSportPricing.standard_1month} onChange={(e) => setNewSportPricing((p) => ({ ...p, standard_1month: e.target.value }))} /></div>
+                <div><Label className="text-xs">3 Months</Label><Input type="number" value={newSportPricing.standard_3months} onChange={(e) => setNewSportPricing((p) => ({ ...p, standard_3months: e.target.value }))} /></div>
+                <div><Label className="text-xs">6 Months</Label><Input type="number" value={newSportPricing.standard_6months} onChange={(e) => setNewSportPricing((p) => ({ ...p, standard_6months: e.target.value }))} /></div>
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-3">
+              <p className="text-sm font-semibold mb-3">PREMIUM BATCH PRICING</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div><Label className="text-xs">1 Month</Label><Input type="number" value={newSportPricing.premium_1month} onChange={(e) => setNewSportPricing((p) => ({ ...p, premium_1month: e.target.value }))} /></div>
+                <div><Label className="text-xs">3 Months</Label><Input type="number" value={newSportPricing.premium_3months} onChange={(e) => setNewSportPricing((p) => ({ ...p, premium_3months: e.target.value }))} /></div>
+                <div><Label className="text-xs">6 Months</Label><Input type="number" value={newSportPricing.premium_6months} onChange={(e) => setNewSportPricing((p) => ({ ...p, premium_6months: e.target.value }))} /></div>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave}>Save →</Button>
+            <Button variant="outline" onClick={() => setAddSportPricingOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddSportPricing} disabled={!isCustomSport && !newSportPricing.sportName}>Add →</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
