@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance: {
+        Row: {
+          date: string
+          id: string
+          marked_at: string | null
+          marked_by: string | null
+          status: string
+          student_id: string
+          time_slot_id: string | null
+        }
+        Insert: {
+          date: string
+          id?: string
+          marked_at?: string | null
+          marked_by?: string | null
+          status?: string
+          student_id: string
+          time_slot_id?: string | null
+        }
+        Update: {
+          date?: string
+          id?: string
+          marked_at?: string | null
+          marked_by?: string | null
+          status?: string
+          student_id?: string
+          time_slot_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_time_slot_id_fkey"
+            columns: ["time_slot_id"]
+            isOneToOne: false
+            referencedRelation: "time_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communities: {
         Row: {
           address: string
@@ -21,10 +66,14 @@ export type Database = {
           contact_phone: string
           created_at: string
           id: string
+          is_active: boolean | null
           name: string
           pricing: Json
           short_code: string
           status: string
+          total_revenue: number | null
+          total_sports: number | null
+          total_students: number | null
           updated_at: string
         }
         Insert: {
@@ -33,10 +82,14 @@ export type Database = {
           contact_phone?: string
           created_at?: string
           id?: string
+          is_active?: boolean | null
           name: string
           pricing?: Json
           short_code: string
           status?: string
+          total_revenue?: number | null
+          total_sports?: number | null
+          total_students?: number | null
           updated_at?: string
         }
         Update: {
@@ -45,11 +98,42 @@ export type Database = {
           contact_phone?: string
           created_at?: string
           id?: string
+          is_active?: boolean | null
           name?: string
           pricing?: Json
           short_code?: string
           status?: string
+          total_revenue?: number | null
+          total_sports?: number | null
+          total_students?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      global_sports: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          icon: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
         }
         Relationships: []
       }
@@ -63,9 +147,13 @@ export type Database = {
           period_end: string | null
           period_start: string | null
           plan_period: string
+          receipt_number: string | null
+          screenshot_url: string | null
+          student_code: string | null
           student_id: string
           transaction_id: string | null
           verification_method: string
+          verified_at: string | null
         }
         Insert: {
           amount: number
@@ -76,9 +164,13 @@ export type Database = {
           period_end?: string | null
           period_start?: string | null
           plan_period?: string
+          receipt_number?: string | null
+          screenshot_url?: string | null
+          student_code?: string | null
           student_id: string
           transaction_id?: string | null
           verification_method?: string
+          verified_at?: string | null
         }
         Update: {
           amount?: number
@@ -89,9 +181,13 @@ export type Database = {
           period_end?: string | null
           period_start?: string | null
           plan_period?: string
+          receipt_number?: string | null
+          screenshot_url?: string | null
+          student_code?: string | null
           student_id?: string
           transaction_id?: string | null
           verification_method?: string
+          verified_at?: string | null
         }
         Relationships: [
           {
@@ -99,6 +195,63 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sport_pricing: {
+        Row: {
+          community_id: string
+          created_at: string | null
+          id: string
+          premium_1month: number
+          premium_3months: number
+          premium_6months: number
+          sport_id: string
+          standard_1month: number
+          standard_3months: number
+          standard_6months: number
+          updated_at: string | null
+        }
+        Insert: {
+          community_id: string
+          created_at?: string | null
+          id?: string
+          premium_1month?: number
+          premium_3months?: number
+          premium_6months?: number
+          sport_id: string
+          standard_1month?: number
+          standard_3months?: number
+          standard_6months?: number
+          updated_at?: string | null
+        }
+        Update: {
+          community_id?: string
+          created_at?: string | null
+          id?: string
+          premium_1month?: number
+          premium_3months?: number
+          premium_6months?: number
+          sport_id?: string
+          standard_1month?: number
+          standard_3months?: number
+          standard_6months?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sport_pricing_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sport_pricing_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
             referencedColumns: ["id"]
           },
         ]
@@ -112,10 +265,14 @@ export type Database = {
           created_at: string
           icon: string
           id: string
+          is_active: boolean | null
+          is_custom: boolean | null
           name: string
           premium_fee: number
+          revenue_collected: number | null
           standard_fee: number
           time_slots: string[]
+          total_students: number | null
           updated_at: string
         }
         Insert: {
@@ -126,10 +283,14 @@ export type Database = {
           created_at?: string
           icon?: string
           id?: string
+          is_active?: boolean | null
+          is_custom?: boolean | null
           name: string
           premium_fee?: number
+          revenue_collected?: number | null
           standard_fee?: number
           time_slots?: string[]
+          total_students?: number | null
           updated_at?: string
         }
         Update: {
@@ -140,10 +301,14 @@ export type Database = {
           created_at?: string
           icon?: string
           id?: string
+          is_active?: boolean | null
+          is_custom?: boolean | null
           name?: string
           premium_fee?: number
+          revenue_collected?: number | null
           standard_fee?: number
           time_slots?: string[]
+          total_students?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -164,10 +329,13 @@ export type Database = {
           batch_type: string
           community_id: string
           created_at: string
+          created_by: string | null
           fee_amount: number
           fee_status: string
+          hold_reason: string | null
           id: string
           is_active: boolean
+          is_on_hold: boolean | null
           joining_date: string
           name: string
           next_due_date: string | null
@@ -179,6 +347,7 @@ export type Database = {
           payment_start_date: string | null
           sport_id: string
           student_id: string
+          time_slot_id: string | null
           updated_at: string
         }
         Insert: {
@@ -188,10 +357,13 @@ export type Database = {
           batch_type?: string
           community_id: string
           created_at?: string
+          created_by?: string | null
           fee_amount?: number
           fee_status?: string
+          hold_reason?: string | null
           id?: string
           is_active?: boolean
+          is_on_hold?: boolean | null
           joining_date?: string
           name: string
           next_due_date?: string | null
@@ -203,6 +375,7 @@ export type Database = {
           payment_start_date?: string | null
           sport_id: string
           student_id: string
+          time_slot_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -212,10 +385,13 @@ export type Database = {
           batch_type?: string
           community_id?: string
           created_at?: string
+          created_by?: string | null
           fee_amount?: number
           fee_status?: string
+          hold_reason?: string | null
           id?: string
           is_active?: boolean
+          is_on_hold?: boolean | null
           joining_date?: string
           name?: string
           next_due_date?: string | null
@@ -227,6 +403,7 @@ export type Database = {
           payment_start_date?: string | null
           sport_id?: string
           student_id?: string
+          time_slot_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -239,6 +416,73 @@ export type Database = {
           },
           {
             foreignKeyName: "students_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_time_slot_id_fkey"
+            columns: ["time_slot_id"]
+            isOneToOne: false
+            referencedRelation: "time_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      time_slots: {
+        Row: {
+          active_days: string[] | null
+          age_group: string
+          batch_type: string
+          community_id: string
+          created_at: string | null
+          current_students: number | null
+          end_time: string
+          id: string
+          is_active: boolean | null
+          max_students: number | null
+          sport_id: string
+          start_time: string
+        }
+        Insert: {
+          active_days?: string[] | null
+          age_group?: string
+          batch_type?: string
+          community_id: string
+          created_at?: string | null
+          current_students?: number | null
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          max_students?: number | null
+          sport_id: string
+          start_time: string
+        }
+        Update: {
+          active_days?: string[] | null
+          age_group?: string
+          batch_type?: string
+          community_id?: string
+          created_at?: string | null
+          current_students?: number | null
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          max_students?: number | null
+          sport_id?: string
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_slots_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_slots_sport_id_fkey"
             columns: ["sport_id"]
             isOneToOne: false
             referencedRelation: "sports"
