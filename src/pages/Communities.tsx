@@ -1,22 +1,22 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Building2, Users, Trophy, IndianRupee, Filter } from "lucide-react";
+import { Search, Plus, Building2, Users, Trophy, IndianRupee, Filter, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
-import { mockCommunities, mockSports, mockStudents, mockPayments, mockGlobalSports, formatCurrency, formatCurrencyFull } from "@/lib/mock-data";
-import type { Community } from "@/types/database";
+import { useCommunities, useStudents, usePayments, useSports, useGlobalSports, useCreateCommunity, useDeleteCommunity, formatCurrency, formatCurrencyFull } from "@/hooks/useSupabaseData";
 
 interface SportPricingEntry {
-  sportId: string;
   sportName: string;
   sportIcon: string;
+  coach_name: string;
+  coach_phone: string;
   standard_1month: string;
   standard_3months: string;
   standard_6months: string;
@@ -27,17 +27,24 @@ interface SportPricingEntry {
 
 export default function Communities() {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { data: communities = [], isLoading } = useCommunities();
+  const { data: students = [] } = useStudents();
+  const { data: payments = [] } = usePayments();
+  const { data: sports = [] } = useSports();
+  const { data: globalSports = [] } = useGlobalSports();
+  const createCommunity = useCreateCommunity();
+  const deleteCommunityMut = useDeleteCommunity();
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
-  const [deleteCommunity, setDeleteCommunity] = useState<Community | null>(null);
+  const [deleteCommunityId, setDeleteCommunityId] = useState<string | null>(null);
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({ name: "", short_code: "", address: "", contact_person: "", contact_phone: "" });
   const [sportPricings, setSportPricings] = useState<SportPricingEntry[]>([]);
   const [addSportPricingOpen, setAddSportPricingOpen] = useState(false);
   const [newSportPricing, setNewSportPricing] = useState<SportPricingEntry>({
-    sportId: "", sportName: "", sportIcon: "",
+    sportName: "", sportIcon: "", coach_name: "", coach_phone: "",
     standard_1month: "3000", standard_3months: "8500", standard_6months: "16000",
     premium_1month: "4500", premium_3months: "12500", premium_6months: "24000",
   });
@@ -46,29 +53,29 @@ export default function Communities() {
   const [customSportIcon, setCustomSportIcon] = useState("🏅");
 
   const globalStats = useMemo(() => ({
-    communities: mockCommunities.length,
-    sports: mockSports.length,
-    students: mockStudents.length,
-    revenue: mockPayments.reduce((s, p) => s + p.amount, 0),
-  }), []);
+    communities: communities.length,
+    sports: sports.length,
+    students: students.length,
+    revenue: payments.reduce((s, p) => s + Number(p.amount), 0),
+  }), [communities, sports, students, payments]);
 
   const filtered = useMemo(() => {
-    let list = mockCommunities;
+    let list = communities;
     if (statusFilter !== "all") list = list.filter((c) => c.status === statusFilter);
     if (search) {
       const q = search.toLowerCase();
       list = list.filter((c) => c.name.toLowerCase().includes(q) || c.short_code.toLowerCase().includes(q) || c.address.toLowerCase().includes(q));
     }
     return list;
-  }, [search, statusFilter]);
+  }, [communities, search, statusFilter]);
 
-  const getCommStats = (c: Community) => {
-    const students = mockStudents.filter((s) => s.community_id === c.id);
-    const sports = mockSports.filter((s) => s.community_id === c.id);
-    const payments = mockPayments.filter((p) => students.some((s) => s.id === p.student_id));
-    const revenue = payments.reduce((s, p) => s + p.amount, 0);
-    const paidPct = students.length ? (students.filter((s) => s.fee_status === "paid").length / students.length) * 100 : 0;
-    return { studentCount: students.length, sportCount: sports.length, revenue, paidPct };
+  const getCommStats = (c: typeof communities[0]) => {
+    const commStudents = students.filter((s) => s.community_id === c.id);
+    const commSports = sports.filter((s) => s.community_id === c.id);
+    const commPayments = payments.filter((p) => commStudents.some((s) => s.id === p.student_id));
+    const revenue = commPayments.reduce((s, p) => s + Number(p.amount), 0);
+    const paidPct = commStudents.length ? (commStudents.filter((s) => s.fee_status === "paid").length / commStudents.length) * 100 : 0;
+    return { studentCount: commStudents.length, sportCount: commSports.length, revenue, paidPct };
   };
 
   const handleNameChange = (name: string) => {
@@ -85,28 +92,68 @@ export default function Communities() {
 
   const handleAddSportPricing = () => {
     const entry: SportPricingEntry = isCustomSport
-      ? { ...newSportPricing, sportId: `custom-${Date.now()}`, sportName: customSportName, sportIcon: customSportIcon }
+      ? { ...newSportPricing, sportName: customSportName, sportIcon: customSportIcon }
       : { ...newSportPricing };
     setSportPricings((prev) => [...prev, entry]);
     setAddSportPricingOpen(false);
     setIsCustomSport(false);
+    setNewSportPricing({
+      sportName: "", sportIcon: "", coach_name: "", coach_phone: "",
+      standard_1month: "3000", standard_3months: "8500", standard_6months: "16000",
+      premium_1month: "4500", premium_3months: "12500", premium_6months: "24000",
+    });
   };
 
   const handleRemoveSportPricing = (idx: number) => {
     setSportPricings((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleSave = () => {
-    toast({ title: "Community added!", description: `${formData.name} with ${sportPricings.length} sports` });
+  const handleSave = async () => {
+    if (sportPricings.length === 0) return;
+    await createCommunity.mutateAsync({
+      name: formData.name,
+      short_code: formData.short_code,
+      address: formData.address,
+      contact_person: formData.contact_person,
+      contact_phone: formData.contact_phone,
+      sports: sportPricings.map((sp) => ({
+        sportName: sp.sportName,
+        sportIcon: sp.sportIcon,
+        coach_name: sp.coach_name,
+        coach_phone: sp.coach_phone,
+        standard_1month: Number(sp.standard_1month),
+        standard_3months: Number(sp.standard_3months),
+        standard_6months: Number(sp.standard_6months),
+        premium_1month: Number(sp.premium_1month),
+        premium_3months: Number(sp.premium_3months),
+        premium_6months: Number(sp.premium_6months),
+      })),
+    });
     setAddOpen(false);
   };
 
-  const handleDelete = () => {
-    toast({ title: "Community deleted", description: deleteCommunity?.name, variant: "destructive" });
-    setDeleteCommunity(null);
+  const handleDelete = async () => {
+    if (!deleteCommunityId) return;
+    await deleteCommunityMut.mutateAsync(deleteCommunityId);
+    setDeleteCommunityId(null);
   };
 
-  const availableSports = mockGlobalSports.filter((gs) => !sportPricings.some((sp) => sp.sportName === gs.name));
+  const availableSports = globalSports.filter((gs) => !sportPricings.some((sp) => sp.sportName === gs.name));
+  const deleteCommunityData = communities.find((c) => c.id === deleteCommunityId);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Communities Management</h1>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -152,50 +199,59 @@ export default function Communities() {
       </div>
 
       {/* Community Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-        {filtered.map((c) => {
-          const cs = getCommStats(c);
-          const health = cs.paidPct >= 90 ? "🟢" : cs.paidPct >= 70 ? "🟡" : "🔴";
-          return (
-            <Card key={c.id} onClick={() => navigate(`/communities/${c.id}`)} className="cursor-pointer hover:border-primary/50 transition-all duration-200 hover:shadow-[0_0_15px_hsl(110_100%_55%/0.1)] group">
-              <CardContent className="p-5 space-y-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-5 w-5 text-primary" />
-                      <h3 className="font-bold text-lg group-hover:text-primary transition-colors">{c.name}</h3>
-                      <span>{health}</span>
+      {filtered.length === 0 ? (
+        <div className="text-center py-16">
+          <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-lg font-medium text-muted-foreground">No communities found</p>
+          <p className="text-sm text-muted-foreground mt-1">Create your first community to get started</p>
+          <Button onClick={openAddCommunity} className="mt-4 gap-2"><Plus className="h-4 w-4" /> Add Community</Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {filtered.map((c) => {
+            const cs = getCommStats(c);
+            const health = cs.paidPct >= 90 ? "🟢" : cs.paidPct >= 70 ? "🟡" : "🔴";
+            return (
+              <Card key={c.id} onClick={() => navigate(`/communities/${c.id}`)} className="cursor-pointer hover:border-primary/50 transition-all duration-200 hover:shadow-[0_0_15px_hsl(110_100%_55%/0.1)] group">
+                <CardContent className="p-5 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-primary" />
+                        <h3 className="font-bold text-lg group-hover:text-primary transition-colors">{c.name}</h3>
+                        <span>{health}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">{c.short_code} • {c.address}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-0.5">{c.short_code} • {c.address}</p>
+                    <Badge variant={c.status === "active" ? "default" : "secondary"}>{c.status}</Badge>
                   </div>
-                  <Badge variant={c.status === "active" ? "default" : "secondary"}>{c.status}</Badge>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { val: `👥 ${cs.studentCount}`, label: "Students" },
-                    { val: `🏐 ${cs.sportCount}`, label: "Sports" },
-                    { val: `💰 ${formatCurrency(cs.revenue)}`, label: "Revenue" },
-                  ].map((s, i) => (
-                    <div key={i} className="text-center p-2 rounded-lg bg-secondary/50">
-                      <p className="font-semibold text-sm">{s.val}</p>
-                      <p className="text-[10px] text-muted-foreground">{s.label}</p>
-                    </div>
-                  ))}
-                </div>
-                <Button variant="ghost" size="sm" className="w-full">View Details →</Button>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { val: `👥 ${cs.studentCount}`, label: "Students" },
+                      { val: `🏐 ${cs.sportCount}`, label: "Sports" },
+                      { val: `💰 ${formatCurrency(cs.revenue)}`, label: "Revenue" },
+                    ].map((s, i) => (
+                      <div key={i} className="text-center p-2 rounded-lg bg-secondary/50">
+                        <p className="font-semibold text-sm">{s.val}</p>
+                        <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <Button variant="ghost" size="sm" className="w-full">View Details →</Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Add Community Modal - Step 1: Basic Info */}
+      {/* Add Community Modal - Step 1 */}
       <Dialog open={addOpen && step === 1} onOpenChange={(v) => { if (!v) setAddOpen(false); }}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-auto">
-          <DialogHeader><DialogTitle>Add New Community</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Add New Community — Step 1/2</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>Community Name *</Label><Input value={formData.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="e.g. Waterford Apartments" /></div>
-            <div><Label>Short Code * (Auto-generated, editable)</Label><Input value={formData.short_code} onChange={(e) => setFormData((p) => ({ ...p, short_code: e.target.value.toUpperCase().slice(0, 3) }))} placeholder="WTF" maxLength={3} /></div>
+            <div><Label>Short Code * (Auto-generated, editable)</Label><Input value={formData.short_code} onChange={(e) => setFormData((p) => ({ ...p, short_code: e.target.value.toUpperCase().slice(0, 10) }))} placeholder="WTF" maxLength={10} /></div>
             <div><Label>Address *</Label><Input value={formData.address} onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))} placeholder="HSR Layout, Bangalore" /></div>
             <div><Label>Contact Person</Label><Input value={formData.contact_person} onChange={(e) => setFormData((p) => ({ ...p, contact_person: e.target.value }))} placeholder="Mr. Sharma" /></div>
             <div><Label>Contact Phone</Label><Input value={formData.contact_phone} onChange={(e) => setFormData((p) => ({ ...p, contact_phone: e.target.value }))} placeholder="+91 9876543210" /></div>
@@ -207,7 +263,7 @@ export default function Communities() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Community Modal - Step 2: Sport Pricing */}
+      {/* Add Community Modal - Step 2 */}
       <Dialog open={addOpen && step === 2} onOpenChange={(v) => { if (!v) setAddOpen(false); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
           <DialogHeader><DialogTitle>Set Pricing for {formData.name} ({formData.short_code})</DialogTitle></DialogHeader>
@@ -222,7 +278,8 @@ export default function Communities() {
                   <h4 className="font-bold">{sp.sportIcon} {sp.sportName}</h4>
                   <Button variant="ghost" size="sm" onClick={() => handleRemoveSportPricing(idx)} className="text-destructive h-7">×</Button>
                 </div>
-                <div className="text-sm text-muted-foreground space-y-1">
+                <p className="text-xs text-muted-foreground">Coach: {sp.coach_name} • {sp.coach_phone}</p>
+                <div className="text-sm text-muted-foreground space-y-1 mt-1">
                   <p>Standard: 1M ₹{sp.standard_1month} | 3M ₹{sp.standard_3months} | 6M ₹{sp.standard_6months}</p>
                   <p>Premium: 1M ₹{sp.premium_1month} | 3M ₹{sp.premium_3months} | 6M ₹{sp.premium_6months}</p>
                 </div>
@@ -232,7 +289,9 @@ export default function Communities() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setStep(1)}>← Back</Button>
-            <Button onClick={handleSave}>Save Community →</Button>
+            <Button onClick={handleSave} disabled={sportPricings.length === 0 || createCommunity.isPending}>
+              {createCommunity.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...</> : "Save Community →"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -244,20 +303,20 @@ export default function Communities() {
           <div className="space-y-4">
             <div>
               <Label>Select Sport *</Label>
-              <Select value={isCustomSport ? "__custom__" : newSportPricing.sportId} onValueChange={(v) => {
+              <Select value={isCustomSport ? "__custom__" : newSportPricing.sportName} onValueChange={(v) => {
                 if (v === "__custom__") {
                   setIsCustomSport(true);
-                  setNewSportPricing((p) => ({ ...p, sportId: "", sportName: "", sportIcon: "" }));
+                  setNewSportPricing((p) => ({ ...p, sportName: "", sportIcon: "" }));
                 } else {
                   setIsCustomSport(false);
-                  const gs = mockGlobalSports.find((g) => g.id === v);
-                  if (gs) setNewSportPricing((p) => ({ ...p, sportId: gs.id, sportName: gs.name, sportIcon: gs.icon }));
+                  const gs = globalSports.find((g) => g.name === v);
+                  if (gs) setNewSportPricing((p) => ({ ...p, sportName: gs.name, sportIcon: gs.icon || "🏃" }));
                 }
               }}>
                 <SelectTrigger><SelectValue placeholder="Select sport" /></SelectTrigger>
                 <SelectContent>
                   {availableSports.map((gs) => (
-                    <SelectItem key={gs.id} value={gs.id}>{gs.icon} {gs.name}</SelectItem>
+                    <SelectItem key={gs.id} value={gs.name}>{gs.icon} {gs.name}</SelectItem>
                   ))}
                   <SelectItem value="__custom__">➕ Add Custom Sport</SelectItem>
                 </SelectContent>
@@ -270,6 +329,9 @@ export default function Communities() {
                 <div><Label>Icon (emoji)</Label><Input value={customSportIcon} onChange={(e) => setCustomSportIcon(e.target.value)} placeholder="💃" /></div>
               </div>
             )}
+
+            <div><Label>Coach Name</Label><Input value={newSportPricing.coach_name} onChange={(e) => setNewSportPricing((p) => ({ ...p, coach_name: e.target.value }))} placeholder="Ramesh Kumar" /></div>
+            <div><Label>Coach Phone</Label><Input value={newSportPricing.coach_phone} onChange={(e) => setNewSportPricing((p) => ({ ...p, coach_phone: e.target.value }))} placeholder="9876543210" /></div>
 
             <div className="border-t border-border pt-3">
               <p className="text-sm font-semibold mb-3">STANDARD BATCH PRICING</p>
@@ -297,10 +359,10 @@ export default function Communities() {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteCommunity} onOpenChange={(v) => { if (!v) setDeleteCommunity(null); }}>
+      <AlertDialog open={!!deleteCommunityId} onOpenChange={(v) => { if (!v) setDeleteCommunityId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {deleteCommunity?.name}?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {deleteCommunityData?.name}?</AlertDialogTitle>
             <AlertDialogDescription>This will remove all sports and students. This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

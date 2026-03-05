@@ -1,66 +1,67 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Phone, MessageSquare, Plus, ChevronDown, ChevronUp, Search, Edit2, Users, Trophy, IndianRupee, AlertTriangle, Clock } from "lucide-react";
+import { ArrowLeft, Phone, MessageSquare, Plus, ChevronDown, ChevronUp, Search, Edit2, Users, Trophy, IndianRupee, AlertTriangle, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useToast } from "@/hooks/use-toast";
-import { mockCommunities, mockSports, mockStudents, mockSportPricing, mockTimeSlots, mockGlobalSports, formatCurrencyFull, formatCurrency, formatTime } from "@/lib/mock-data";
-import type { Sport, TimeSlot } from "@/types/database";
+import {
+  useCommunity, useSports, useStudents, useSportPricing, useTimeSlots, useGlobalSports,
+  useCreateSport, useCreateTimeSlot, useCreateStudent,
+  formatCurrencyFull, formatCurrency, formatTime,
+} from "@/hooks/useSupabaseData";
 
 export default function CommunityDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
-  const community = mockCommunities.find((c) => c.id === id);
-  const commSports = useMemo(() => mockSports.filter((s) => s.community_id === id), [id]);
-  const commStudents = useMemo(() => mockStudents.filter((s) => s.community_id === id), [id]);
-  const commTimeSlots = useMemo(() => mockTimeSlots.filter((ts) => ts.community_id === id), [id]);
-  const commPricing = useMemo(() => mockSportPricing.filter((sp) => sp.community_id === id), [id]);
+  const { data: community, isLoading: loadingComm } = useCommunity(id);
+  const { data: commSports = [], isLoading: loadingSports } = useSports(id);
+  const { data: commStudents = [] } = useStudents(id);
+  const { data: commPricing = [] } = useSportPricing(id);
+  const { data: commTimeSlots = [] } = useTimeSlots(id);
+  const { data: globalSports = [] } = useGlobalSports();
+
+  const createSport = useCreateSport();
+  const createTimeSlot = useCreateTimeSlot();
+  const createStudent = useCreateStudent();
 
   const [search, setSearch] = useState("");
   const [feeFilter, setFeeFilter] = useState("all");
   const [expandedSports, setExpandedSports] = useState<Set<string>>(new Set());
 
-  // Modals
   const [addStudentOpen, setAddStudentOpen] = useState(false);
   const [addSportOpen, setAddSportOpen] = useState(false);
   const [addSlotOpen, setAddSlotOpen] = useState(false);
   const [slotSportId, setSlotSportId] = useState("");
 
-  // Student form
   const [studentForm, setStudentForm] = useState({
     name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
     sport_id: "", time_slot_id: "", age_group: "kids", payment_plan: "1m",
     joining_date: new Date().toISOString().slice(0, 10),
   });
 
-  // Sport form
   const [sportForm, setSportForm] = useState({
-    sportId: "", sportName: "", sportIcon: "", coach_name: "", coach_phone: "",
+    sportName: "", sportIcon: "", coach_name: "", coach_phone: "",
     standard_1month: "3000", standard_3months: "8500", standard_6months: "16000",
     premium_1month: "4500", premium_3months: "12500", premium_6months: "24000",
   });
 
-  // Time slot form
   const [slotForm, setSlotForm] = useState({
     start_time: "16:00", end_time: "17:00", age_group: "kids", batch_type: "standard",
     max_students: "30", active_days: ["Monday", "Wednesday", "Friday"] as string[],
   });
 
-  // Student form helpers
   const selectedSport = commSports.find((s) => s.id === studentForm.sport_id);
   const studentSlots = useMemo(() => {
     if (!studentForm.sport_id) return [];
-    const ageGroup = studentForm.age_group;
-    return commTimeSlots.filter((ts) => ts.sport_id === studentForm.sport_id && ts.age_group === ageGroup);
+    return commTimeSlots.filter((ts) => ts.sport_id === studentForm.sport_id && ts.age_group === studentForm.age_group);
   }, [studentForm.sport_id, studentForm.age_group, commTimeSlots]);
 
   const selectedSlot = commTimeSlots.find((ts) => ts.id === studentForm.time_slot_id);
@@ -69,11 +70,24 @@ export default function CommunityDetail() {
   const stats = useMemo(() => {
     const paid = commStudents.filter((s) => s.fee_status === "paid").length;
     const pending = commStudents.filter((s) => s.fee_status !== "paid").length;
-    const revenue = commStudents.filter((s) => s.fee_status === "paid").reduce((sum, s) => sum + s.fee_amount, 0);
+    const revenue = commStudents.filter((s) => s.fee_status === "paid").reduce((sum, s) => sum + Number(s.fee_amount), 0);
     return { students: commStudents.length, sports: commSports.length, revenue, pending };
   }, [commStudents, commSports]);
 
-  if (!community) return <div className="p-6">Community not found</div>;
+  const isLoading = loadingComm || loadingSports;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (!community) return <div className="p-6 text-muted-foreground">Community not found. <Button variant="link" onClick={() => navigate("/communities")}>Go back</Button></div>;
 
   const toggleSport = (sportId: string) => {
     setExpandedSports((prev) => {
@@ -83,27 +97,22 @@ export default function CommunityDetail() {
     });
   };
 
-  const getFilteredStudents = (sport: Sport) => {
-    let students = commStudents.filter((s) => s.sport_id === sport.id);
+  const getFilteredStudents = (sportId: string) => {
+    let studs = commStudents.filter((s) => s.sport_id === sportId);
     if (search) {
       const q = search.toLowerCase();
-      students = students.filter((s) => s.name.toLowerCase().includes(q) || s.student_id.toLowerCase().includes(q) || s.parent_name.toLowerCase().includes(q));
+      studs = studs.filter((s) => s.name.toLowerCase().includes(q) || s.student_id.toLowerCase().includes(q) || s.parent_name.toLowerCase().includes(q));
     }
-    if (feeFilter !== "all") students = students.filter((s) => s.fee_status === feeFilter);
-    return students;
+    if (feeFilter !== "all") studs = studs.filter((s) => s.fee_status === feeFilter);
+    return studs;
   };
-
-  const getSportSlots = (sportId: string) => commTimeSlots.filter((ts) => ts.sport_id === sportId);
-  const getSportPricing = (sportId: string) => commPricing.find((sp) => sp.sport_id === sportId);
-
-
 
   const getFeeAmount = () => {
     if (!studentPricing || !selectedSlot) return 0;
     const bt = selectedSlot.batch_type;
     const plan = studentForm.payment_plan;
-    const key = `${bt}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}` as keyof typeof studentPricing;
-    return Number(studentPricing[key]) || 0;
+    const key = `${bt}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
+    return Number((studentPricing as any)[key]) || 0;
   };
 
   const getStudentId = () => {
@@ -111,27 +120,65 @@ export default function CommunityDetail() {
     return `${community.short_code}${String(count).padStart(3, "0")}`;
   };
 
-  const openAddStudent = (sport?: Sport) => {
+  const openAddStudent = (sportId?: string) => {
     setStudentForm({
       name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
-      sport_id: sport?.id ?? commSports[0]?.id ?? "", time_slot_id: "", age_group: "kids",
+      sport_id: sportId ?? commSports[0]?.id ?? "", time_slot_id: "", age_group: "kids",
       payment_plan: "1m", joining_date: new Date().toISOString().slice(0, 10),
     });
     setAddStudentOpen(true);
   };
 
-  const handleSaveStudent = () => {
-    toast({ title: "Student enrolled!", description: `${studentForm.name} — ${getStudentId()}` });
+  const handleSaveStudent = async () => {
+    const feeAmount = getFeeAmount();
+    await createStudent.mutateAsync({
+      student_id: getStudentId(),
+      name: studentForm.name,
+      age: parseInt(studentForm.age) || 10,
+      parent_name: studentForm.parent_name,
+      parent_whatsapp: studentForm.parent_whatsapp,
+      parent_phone: studentForm.parent_phone,
+      community_id: id!,
+      sport_id: studentForm.sport_id,
+      time_slot_id: studentForm.time_slot_id,
+      batch_type: selectedSlot?.batch_type || "standard",
+      age_group: studentForm.age_group,
+      payment_plan: studentForm.payment_plan,
+      fee_amount: feeAmount,
+      joining_date: studentForm.joining_date,
+      batch_time: selectedSlot ? `${formatTime(selectedSlot.start_time)}-${formatTime(selectedSlot.end_time)}` : "",
+    });
     setAddStudentOpen(false);
   };
 
-  const handleSaveSport = () => {
-    toast({ title: "Sport added!", description: `${sportForm.sportName} added to ${community.name}` });
+  const handleSaveSport = async () => {
+    await createSport.mutateAsync({
+      name: sportForm.sportName,
+      icon: sportForm.sportIcon,
+      community_id: id!,
+      coach_name: sportForm.coach_name,
+      coach_phone: sportForm.coach_phone,
+      standard_1month: Number(sportForm.standard_1month),
+      standard_3months: Number(sportForm.standard_3months),
+      standard_6months: Number(sportForm.standard_6months),
+      premium_1month: Number(sportForm.premium_1month),
+      premium_3months: Number(sportForm.premium_3months),
+      premium_6months: Number(sportForm.premium_6months),
+    });
     setAddSportOpen(false);
   };
 
-  const handleSaveSlot = () => {
-    toast({ title: "Time slot created!", description: `${slotForm.start_time} - ${slotForm.end_time} (${slotForm.age_group}, ${slotForm.batch_type})` });
+  const handleSaveSlot = async () => {
+    await createTimeSlot.mutateAsync({
+      community_id: id!,
+      sport_id: slotSportId,
+      start_time: slotForm.start_time,
+      end_time: slotForm.end_time,
+      age_group: slotForm.age_group,
+      batch_type: slotForm.batch_type,
+      active_days: slotForm.active_days,
+      max_students: parseInt(slotForm.max_students) || 30,
+    });
     setAddSlotOpen(false);
   };
 
@@ -153,7 +200,6 @@ export default function CommunityDetail() {
             </p>
           )}
         </div>
-        <Button variant="outline" size="sm" className="gap-1"><Edit2 className="h-3 w-3" /> Edit</Button>
       </div>
 
       {/* Stats */}
@@ -180,119 +226,119 @@ export default function CommunityDetail() {
         </Select>
         <Button onClick={() => openAddStudent()} className="gap-1"><Plus className="h-4 w-4" /> Add Student</Button>
         <Button variant="outline" onClick={() => {
-          setSportForm({ sportId: "", sportName: "", sportIcon: "", coach_name: "", coach_phone: "", standard_1month: "3000", standard_3months: "8500", standard_6months: "16000", premium_1month: "4500", premium_3months: "12500", premium_6months: "24000" });
+          setSportForm({ sportName: "", sportIcon: "", coach_name: "", coach_phone: "", standard_1month: "3000", standard_3months: "8500", standard_6months: "16000", premium_1month: "4500", premium_3months: "12500", premium_6months: "24000" });
           setAddSportOpen(true);
         }} className="gap-1"><Plus className="h-4 w-4" /> Add Sport</Button>
       </div>
 
       {/* Sports with Time Slots */}
-      <div className="space-y-4">
-        {commSports.map((sport) => {
-          const sportStudents = getFilteredStudents(sport);
-          const expanded = expandedSports.has(sport.id);
-          const paid = sportStudents.filter((s) => s.fee_status === "paid").length;
-          const pending = sportStudents.length - paid;
-          const revenue = sportStudents.filter((s) => s.fee_status === "paid").reduce((sum, s) => sum + s.fee_amount, 0);
-          const sportSlots = getSportSlots(sport.id);
-          const pricing = getSportPricing(sport.id);
+      {commSports.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <Trophy className="h-10 w-10 mx-auto mb-3" />
+          <p className="font-medium">No sports added yet</p>
+          <p className="text-sm mt-1">Add a sport to start creating batches and enrolling students</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {commSports.map((sport) => {
+            const sportStudents = getFilteredStudents(sport.id);
+            const expanded = expandedSports.has(sport.id);
+            const paid = sportStudents.filter((s) => s.fee_status === "paid").length;
+            const pending = sportStudents.length - paid;
+            const revenue = sportStudents.filter((s) => s.fee_status === "paid").reduce((sum, s) => sum + Number(s.fee_amount), 0);
+            const sportSlots = commTimeSlots.filter((ts) => ts.sport_id === sport.id);
+            const pricing = commPricing.find((sp) => sp.sport_id === sport.id);
 
-          return (
-            <Card key={sport.id} className="overflow-hidden">
-              <div className="p-4 cursor-pointer hover:bg-muted/30 transition-colors flex items-start justify-between" onClick={() => toggleSport(sport.id)}>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">{sport.icon}</span>
-                    <h3 className="font-bold text-lg">{sport.name}</h3>
-                    {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Coach: {sport.coach_name} • <a href={`tel:+91${sport.coach_phone}`} className="text-primary hover:underline" onClick={(e) => e.stopPropagation()}>{sport.coach_phone}</a>
-                  </p>
-                  {pricing && !expanded && (
-                    <p className="text-sm text-muted-foreground mt-1">Standard: {formatCurrencyFull(pricing.standard_1month)}/mo | Premium: {formatCurrencyFull(pricing.premium_1month)}/mo</p>
-                  )}
-                </div>
-                <div className="text-right text-sm">
-                  <p className="font-semibold">👥 {sportStudents.length} • 💰 {formatCurrency(revenue)}</p>
-                  <p className="text-muted-foreground">{paid} paid, {pending} pending</p>
-                </div>
-              </div>
-
-              {expanded && (
-                <div className="border-t border-border">
-                  {pricing && (
-                    <div className="px-4 pt-3 pb-2 text-sm text-muted-foreground">
-                      <p>Standard: {formatCurrencyFull(pricing.standard_1month)}/1M | {formatCurrencyFull(pricing.standard_3months)}/3M | {formatCurrencyFull(pricing.standard_6months)}/6M</p>
-                      <p>Premium: {formatCurrencyFull(pricing.premium_1month)}/1M | {formatCurrencyFull(pricing.premium_3months)}/3M | {formatCurrencyFull(pricing.premium_6months)}/6M</p>
+            return (
+              <Card key={sport.id} className="overflow-hidden">
+                <div className="p-4 cursor-pointer hover:bg-muted/30 transition-colors flex items-start justify-between" onClick={() => toggleSport(sport.id)}>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{sport.icon}</span>
+                      <h3 className="font-bold text-lg">{sport.name}</h3>
+                      {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                     </div>
-                  )}
-
-                  <div className="px-4 py-2 flex items-center justify-between">
-                    <p className="text-sm font-semibold">TIME SLOTS & BATCHES</p>
-                    <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={(e) => { e.stopPropagation(); setSlotSportId(sport.id); setSlotForm({ start_time: "16:00", end_time: "17:00", age_group: "kids", batch_type: "standard", max_students: "30", active_days: ["Monday", "Wednesday", "Friday"] }); setAddSlotOpen(true); }}>
-                      <Plus className="h-3 w-3" /> Create Time Slot
-                    </Button>
+                    <p className="text-sm text-muted-foreground">Coach: {sport.coach_name} • {sport.coach_phone}</p>
+                    {pricing && !expanded && (
+                      <p className="text-sm text-muted-foreground mt-1">Standard: {formatCurrencyFull(Number(pricing.standard_1month))}/mo | Premium: {formatCurrencyFull(Number(pricing.premium_1month))}/mo</p>
+                    )}
                   </div>
-
-                  {sportSlots.length === 0 && (
-                    <p className="px-4 pb-3 text-sm text-muted-foreground italic">No batches yet. Create time slots above.</p>
-                  )}
-
-                  {sportSlots.map((slot) => {
-                    const slotStudents = sportStudents.filter((s) => {
-                      // Match by time slot or batch time
-                      return s.time_slot_id === slot.id || s.batch_time === `${formatTime(slot.start_time).replace(/:00/g, "")}-${formatTime(slot.end_time).replace(/:00/g, "")}`;
-                    });
-                    const sPaid = slotStudents.filter((s) => s.fee_status === "paid").length;
-
-                    return (
-                      <div key={slot.id} className="border-t border-border/50 px-4 py-3">
-                        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-semibold flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {formatTime(slot.start_time)} - {formatTime(slot.end_time)}</span>
-                            <Badge variant="secondary" className="text-xs">{slot.age_group === "kids" ? "👶 Kids" : "🧑 Adults"}</Badge>
-                            <Badge variant={slot.batch_type === "premium" ? "default" : "secondary"} className="text-xs">{slot.batch_type === "premium" ? "⭐ Premium" : "Standard"}</Badge>
-                            <span className="text-xs text-muted-foreground">{slot.active_days.join(", ")}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">{slot.current_students}/{slot.max_students} students</span>
-                            <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => openAddStudent(sport)}><Plus className="h-3 w-3" /> Add Student</Button>
-                          </div>
-                        </div>
-
-                        {slotStudents.length > 0 && (
-                          <div className="rounded-lg border border-border overflow-auto max-h-[250px] scrollbar-hide">
-                            <table className="w-full text-sm">
-                              <thead className="bg-muted/50 sticky top-0">
-                                <tr className="text-left text-xs text-muted-foreground">
-                                  <th className="p-2">ID</th><th className="p-2">Name</th>
-                                  <th className="p-2 hidden sm:table-cell">Parent</th>
-                                  <th className="p-2">Fee</th><th className="p-2">Status</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {slotStudents.map((st) => (
-                                  <tr key={st.id} onClick={() => navigate(`/students/${st.id}`)} className="border-t border-border/30 cursor-pointer hover:bg-muted/30 transition-colors">
-                                    <td className="p-2 font-mono text-xs text-muted-foreground">{st.student_id}</td>
-                                    <td className="p-2 font-medium">{st.name}</td>
-                                    <td className="p-2 hidden sm:table-cell text-muted-foreground">{st.parent_name}</td>
-                                    <td className="p-2 text-xs">{formatCurrencyFull(st.fee_amount)}</td>
-                                    <td className="p-2"><Badge variant={st.fee_status === "paid" ? "default" : st.fee_status === "overdue" ? "destructive" : "secondary"} className="text-xs">{st.fee_status === "paid" ? "✅" : st.fee_status === "overdue" ? "🔴" : "⚠️"} {st.fee_status}</Badge></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  <div className="text-right text-sm">
+                    <p className="font-semibold">👥 {sportStudents.length} • 💰 {formatCurrency(revenue)}</p>
+                    <p className="text-muted-foreground">{paid} paid, {pending} pending</p>
+                  </div>
                 </div>
-              )}
-            </Card>
-          );
-        })}
-      </div>
+
+                {expanded && (
+                  <div className="border-t border-border">
+                    {pricing && (
+                      <div className="px-4 pt-3 pb-2 text-sm text-muted-foreground">
+                        <p>Standard: {formatCurrencyFull(Number(pricing.standard_1month))}/1M | {formatCurrencyFull(Number(pricing.standard_3months))}/3M | {formatCurrencyFull(Number(pricing.standard_6months))}/6M</p>
+                        <p>Premium: {formatCurrencyFull(Number(pricing.premium_1month))}/1M | {formatCurrencyFull(Number(pricing.premium_3months))}/3M | {formatCurrencyFull(Number(pricing.premium_6months))}/6M</p>
+                      </div>
+                    )}
+
+                    <div className="px-4 py-2 flex items-center justify-between">
+                      <p className="text-sm font-semibold">TIME SLOTS & BATCHES</p>
+                      <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={(e) => { e.stopPropagation(); setSlotSportId(sport.id); setSlotForm({ start_time: "16:00", end_time: "17:00", age_group: "kids", batch_type: "standard", max_students: "30", active_days: ["Monday", "Wednesday", "Friday"] }); setAddSlotOpen(true); }}>
+                        <Plus className="h-3 w-3" /> Create Time Slot
+                      </Button>
+                    </div>
+
+                    {sportSlots.length === 0 && <p className="px-4 pb-3 text-sm text-muted-foreground italic">No batches yet. Create time slots above.</p>}
+
+                    {sportSlots.map((slot) => {
+                      const slotStudents = sportStudents.filter((s) => s.time_slot_id === slot.id);
+
+                      return (
+                        <div key={slot.id} className="border-t border-border/50 px-4 py-3">
+                          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-semibold flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {formatTime(slot.start_time)} - {formatTime(slot.end_time)}</span>
+                              <Badge variant="secondary" className="text-xs">{slot.age_group === "kids" ? "👶 Kids" : "🧑 Adults"}</Badge>
+                              <Badge variant={slot.batch_type === "premium" ? "default" : "secondary"} className="text-xs">{slot.batch_type === "premium" ? "⭐ Premium" : "Standard"}</Badge>
+                              {slot.active_days && <span className="text-xs text-muted-foreground">{(slot.active_days as string[]).join(", ")}</span>}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">{slot.current_students}/{slot.max_students} students</span>
+                              <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => openAddStudent(sport.id)}><Plus className="h-3 w-3" /> Add Student</Button>
+                            </div>
+                          </div>
+
+                          {slotStudents.length > 0 && (
+                            <div className="rounded-lg border border-border overflow-auto max-h-[250px] scrollbar-hide">
+                              <table className="w-full text-sm">
+                                <thead className="bg-muted/50 sticky top-0">
+                                  <tr className="text-left text-xs text-muted-foreground">
+                                    <th className="p-2">ID</th><th className="p-2">Name</th>
+                                    <th className="p-2 hidden sm:table-cell">Parent</th>
+                                    <th className="p-2">Fee</th><th className="p-2">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {slotStudents.map((st) => (
+                                    <tr key={st.id} onClick={() => navigate(`/students/${st.id}`)} className="border-t border-border/30 cursor-pointer hover:bg-muted/30 transition-colors">
+                                      <td className="p-2 font-mono text-xs text-muted-foreground">{st.student_id}</td>
+                                      <td className="p-2 font-medium">{st.name}</td>
+                                      <td className="p-2 hidden sm:table-cell text-muted-foreground">{st.parent_name}</td>
+                                      <td className="p-2 text-xs">{formatCurrencyFull(Number(st.fee_amount))}</td>
+                                      <td className="p-2"><Badge variant={st.fee_status === "paid" ? "default" : st.fee_status === "overdue" ? "destructive" : "secondary"} className="text-xs">{st.fee_status === "paid" ? "✅" : st.fee_status === "overdue" ? "🔴" : st.fee_status === "awaiting_first" ? "✨" : "⚠️"} {st.fee_status}</Badge></td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Add Student Modal */}
       <Dialog open={addStudentOpen} onOpenChange={setAddStudentOpen}>
@@ -303,7 +349,7 @@ export default function CommunityDetail() {
             <div><Label>Age *</Label><Input type="number" value={studentForm.age} onChange={(e) => {
               const age = parseInt(e.target.value) || 0;
               setStudentForm((p) => ({ ...p, age: e.target.value, age_group: age < 18 ? "kids" : "adults", time_slot_id: "" }));
-            }} placeholder="12" min={5} max={50} /></div>
+            }} placeholder="12" min={3} max={60} /></div>
             <div><Label>Parent Name *</Label><Input value={studentForm.parent_name} onChange={(e) => setStudentForm((p) => ({ ...p, parent_name: e.target.value }))} placeholder="Suresh Kumar" /></div>
             <div><Label>WhatsApp Number *</Label><Input value={studentForm.parent_whatsapp} onChange={(e) => setStudentForm((p) => ({ ...p, parent_whatsapp: e.target.value }))} placeholder="9876543210" maxLength={10} /></div>
             <div><Label>Sport *</Label>
@@ -319,13 +365,13 @@ export default function CommunityDetail() {
                 <div className="flex items-center gap-2"><RadioGroupItem value="adults" id="ag-adults" /><Label htmlFor="ag-adults">Adults</Label></div>
               </RadioGroup>
             </div>
-            <div><Label>Time Slot * (filtered by age group)</Label>
+            <div><Label>Time Slot *</Label>
               <Select value={studentForm.time_slot_id} onValueChange={(v) => setStudentForm((p) => ({ ...p, time_slot_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select time slot" /></SelectTrigger>
                 <SelectContent>
                   {studentSlots.map((ts) => (
                     <SelectItem key={ts.id} value={ts.id}>
-                      {formatTime(ts.start_time)} - {formatTime(ts.end_time)} ({ts.age_group}, {ts.batch_type}) — {ts.active_days.slice(0, 3).map((d) => d.slice(0, 3)).join("/")}
+                      {formatTime(ts.start_time)} - {formatTime(ts.end_time)} ({ts.age_group}, {ts.batch_type})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -335,12 +381,11 @@ export default function CommunityDetail() {
               <Label>Payment Plan *</Label>
               <RadioGroup value={studentForm.payment_plan} onValueChange={(v) => setStudentForm((p) => ({ ...p, payment_plan: v }))} className="space-y-2 mt-1">
                 {(["1m", "3m", "6m"] as const).map((plan) => {
-                  const amount = getFeeAmount();
                   const label = plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months";
                   return (
                     <div key={plan} className="flex items-center gap-2">
                       <RadioGroupItem value={plan} id={`pp-${plan}`} />
-                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(amount)}</Label>
+                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(getFeeAmount())}</Label>
                     </div>
                   );
                 })}
@@ -348,32 +393,30 @@ export default function CommunityDetail() {
             </div>
             <div><Label>Joining Date *</Label><Input type="date" value={studentForm.joining_date} onChange={(e) => setStudentForm((p) => ({ ...p, joining_date: e.target.value }))} /></div>
 
-            {/* Auto-generated ID */}
             <div className="border-t border-border pt-3">
               <p className="text-sm font-semibold">Student ID (Auto-generated)</p>
               <p className="text-primary font-mono text-lg">{getStudentId()}</p>
             </div>
 
-            {/* Summary */}
             {studentForm.name && selectedSlot && (
               <div className="bg-muted/50 rounded-lg p-4 space-y-1 text-sm">
                 <p className="font-semibold mb-2">SUMMARY</p>
                 <p>Student: {studentForm.name} ({getStudentId()})</p>
                 <p>Sport: {selectedSport?.icon} {selectedSport?.name} ({selectedSlot.batch_type})</p>
                 <p>Time: {formatTime(selectedSlot.start_time)} - {formatTime(selectedSlot.end_time)} ({selectedSlot.age_group})</p>
-                <p>Days: {selectedSlot.active_days.join(", ")}</p>
                 <p>Amount: {formatCurrencyFull(getFeeAmount())}</p>
                 <div className="mt-2 pt-2 border-t border-border">
                   <p className="text-primary">✨ NEW ENROLLMENT</p>
                   <p className="text-muted-foreground">⏳ Awaiting First Payment</p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">WhatsApp welcome message will be sent.</p>
               </div>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddStudentOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveStudent}>Enroll Student →</Button>
+            <Button onClick={handleSaveStudent} disabled={createStudent.isPending || !studentForm.name || !studentForm.sport_id || !studentForm.time_slot_id}>
+              {createStudent.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Enrolling...</> : "Enroll Student →"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -385,14 +428,14 @@ export default function CommunityDetail() {
           <div className="space-y-4">
             <div>
               <Label>Select Sport *</Label>
-              <Select value={sportForm.sportId} onValueChange={(v) => {
-                const gs = mockGlobalSports.find((g) => g.id === v);
-                if (gs) setSportForm((p) => ({ ...p, sportId: gs.id, sportName: gs.name, sportIcon: gs.icon }));
+              <Select value={sportForm.sportName} onValueChange={(v) => {
+                const gs = globalSports.find((g) => g.name === v);
+                if (gs) setSportForm((p) => ({ ...p, sportName: gs.name, sportIcon: gs.icon || "🏃" }));
               }}>
                 <SelectTrigger><SelectValue placeholder="Select sport" /></SelectTrigger>
                 <SelectContent>
-                  {mockGlobalSports.filter((gs) => !commSports.some((cs) => cs.name === gs.name)).map((gs) => (
-                    <SelectItem key={gs.id} value={gs.id}>{gs.icon} {gs.name}</SelectItem>
+                  {globalSports.filter((gs) => !commSports.some((cs) => cs.name === gs.name)).map((gs) => (
+                    <SelectItem key={gs.id} value={gs.name}>{gs.icon} {gs.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -415,11 +458,12 @@ export default function CommunityDetail() {
                 <div><Label className="text-xs">6 Months</Label><Input type="number" value={sportForm.premium_6months} onChange={(e) => setSportForm((p) => ({ ...p, premium_6months: e.target.value }))} /></div>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">Note: You'll create time slots & batches next</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddSportOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveSport}>Add Sport →</Button>
+            <Button onClick={handleSaveSport} disabled={createSport.isPending || !sportForm.sportName}>
+              {createSport.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Adding...</> : "Add Sport →"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -434,7 +478,7 @@ export default function CommunityDetail() {
               <div><Label>End Time *</Label><Input type="time" value={slotForm.end_time} onChange={(e) => setSlotForm((p) => ({ ...p, end_time: e.target.value }))} /></div>
             </div>
             <div>
-              <Label>Age Group * (One per slot)</Label>
+              <Label>Age Group *</Label>
               <RadioGroup value={slotForm.age_group} onValueChange={(v) => setSlotForm((p) => ({ ...p, age_group: v }))} className="flex gap-4 mt-1">
                 <div className="flex items-center gap-2"><RadioGroupItem value="kids" id="sl-kids" /><Label htmlFor="sl-kids">Kids</Label></div>
                 <div className="flex items-center gap-2"><RadioGroupItem value="adults" id="sl-adults" /><Label htmlFor="sl-adults">Adults</Label></div>
@@ -462,7 +506,9 @@ export default function CommunityDetail() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddSlotOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveSlot}>Create Time Slot →</Button>
+            <Button onClick={handleSaveSlot} disabled={createTimeSlot.isPending}>
+              {createTimeSlot.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Creating...</> : "Create Time Slot →"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

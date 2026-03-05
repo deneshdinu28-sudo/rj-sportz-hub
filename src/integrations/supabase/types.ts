@@ -59,6 +59,56 @@ export type Database = {
           },
         ]
       }
+      batch_promotions: {
+        Row: {
+          from_batch: string
+          id: string
+          new_fee: number
+          old_fee: number
+          promoted_at: string | null
+          promoted_by: string | null
+          reason: string | null
+          student_code: string
+          student_id: string
+          to_batch: string
+          whatsapp_sent: boolean | null
+        }
+        Insert: {
+          from_batch: string
+          id?: string
+          new_fee: number
+          old_fee: number
+          promoted_at?: string | null
+          promoted_by?: string | null
+          reason?: string | null
+          student_code: string
+          student_id: string
+          to_batch: string
+          whatsapp_sent?: boolean | null
+        }
+        Update: {
+          from_batch?: string
+          id?: string
+          new_fee?: number
+          old_fee?: number
+          promoted_at?: string | null
+          promoted_by?: string | null
+          reason?: string | null
+          student_code?: string
+          student_id?: string
+          to_batch?: string
+          whatsapp_sent?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_promotions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communities: {
         Row: {
           address: string
