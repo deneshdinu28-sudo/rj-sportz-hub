@@ -189,8 +189,6 @@ export function useCreateSport() {
       });
       if (pErr) throw pErr;
 
-      // Update community sport count
-      await supabase.rpc("", {}).catch(() => {}); // noop
       return sport;
     },
     onSuccess: (_, vars) => {
