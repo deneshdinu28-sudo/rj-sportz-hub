@@ -2,18 +2,23 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CheckCircle, Users, Calendar } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { mockCommunities, mockSports, mockStudents, mockTimeSlots, formatTime } from "@/lib/mock-data";
+import { CheckCircle, Users, Calendar, Loader2 } from "lucide-react";
+import { useCommunities, useSports, useStudents, useTimeSlots, useCreateAttendance, formatTime } from "@/hooks/useSupabaseData";
 
 type AttendanceStatus = "present" | "absent" | "leave";
 
 export default function Attendance() {
-  const { toast } = useToast();
+  const { data: communities = [], isLoading } = useCommunities();
+  const { data: allSports = [] } = useSports();
+  const { data: allStudents = [] } = useStudents();
+  const { data: allTimeSlots = [] } = useTimeSlots();
+  const createAttendance = useCreateAttendance();
+
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [selectedCommunity, setSelectedCommunity] = useState("");
   const [selectedSport, setSelectedSport] = useState("");
@@ -23,24 +28,21 @@ export default function Attendance() {
 
   const filteredSports = useMemo(() => {
     if (!selectedCommunity) return [];
-    return mockSports.filter((s) => s.community_id === selectedCommunity);
-  }, [selectedCommunity]);
+    return allSports.filter((s) => s.community_id === selectedCommunity);
+  }, [selectedCommunity, allSports]);
 
   const filteredSlots = useMemo(() => {
     if (!selectedSport || !selectedCommunity) return [];
-    return mockTimeSlots.filter((ts) => ts.sport_id === selectedSport && ts.community_id === selectedCommunity);
-  }, [selectedSport, selectedCommunity]);
+    return allTimeSlots.filter((ts) => ts.sport_id === selectedSport && ts.community_id === selectedCommunity);
+  }, [selectedSport, selectedCommunity, allTimeSlots]);
 
   const slotStudents = useMemo(() => {
     if (!selectedSlot || !selectedSport) return [];
-    return mockStudents.filter((s) => s.sport_id === selectedSport && s.community_id === selectedCommunity && s.is_active);
-  }, [selectedSlot, selectedSport, selectedCommunity]);
+    return allStudents.filter((s) => s.sport_id === selectedSport && s.community_id === selectedCommunity && s.is_active && s.time_slot_id === selectedSlot);
+  }, [selectedSlot, selectedSport, selectedCommunity, allStudents]);
 
   const handleLoad = () => {
-    if (!selectedCommunity || !selectedSport || !selectedSlot) {
-      toast({ title: "Please select all filters", variant: "destructive" });
-      return;
-    }
+    if (!selectedCommunity || !selectedSport || !selectedSlot) return;
     const initial: Record<string, AttendanceStatus> = {};
     slotStudents.forEach((s) => { initial[s.id] = "present"; });
     setAttendance(initial);
@@ -53,43 +55,47 @@ export default function Attendance() {
     setAttendance(updated);
   };
 
-  const handleSubmit = () => {
-    const present = Object.values(attendance).filter((s) => s === "present").length;
-    const absent = Object.values(attendance).filter((s) => s === "absent").length;
-    const leave = Object.values(attendance).filter((s) => s === "leave").length;
-    toast({ title: `Attendance marked for ${slotStudents.length} students!`, description: `Present: ${present} | Absent: ${absent} | Leave: ${leave}` });
+  const handleSubmit = async () => {
+    const records = slotStudents.map((s) => ({
+      student_id: s.id,
+      time_slot_id: selectedSlot,
+      date: selectedDate,
+      status: attendance[s.id] || "present",
+    }));
+    await createAttendance.mutateAsync(records);
     setLoaded(false);
   };
 
-  const selectedSlotData = mockTimeSlots.find((ts) => ts.id === selectedSlot);
-  const selectedSportData = mockSports.find((s) => s.id === selectedSport);
+  const selectedSlotData = allTimeSlots.find((ts) => ts.id === selectedSlot);
+  const selectedSportData = allSports.find((s) => s.id === selectedSport);
   const summary = useMemo(() => {
     const vals = Object.values(attendance);
-    return {
-      present: vals.filter((v) => v === "present").length,
-      absent: vals.filter((v) => v === "absent").length,
-      leave: vals.filter((v) => v === "leave").length,
-    };
+    return { present: vals.filter((v) => v === "present").length, absent: vals.filter((v) => v === "absent").length, leave: vals.filter((v) => v === "leave").length };
   }, [attendance]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Attendance Management</h1>
+        <Skeleton className="h-48 rounded-xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Attendance Management</h1>
 
-      {/* Filters */}
       <Card>
         <CardContent className="p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <Label>Date</Label>
-              <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-            </div>
+            <div><Label>Date</Label><Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} /></div>
             <div>
               <Label>Community</Label>
               <Select value={selectedCommunity} onValueChange={(v) => { setSelectedCommunity(v); setSelectedSport(""); setSelectedSlot(""); setLoaded(false); }}>
                 <SelectTrigger><SelectValue placeholder="Select community" /></SelectTrigger>
                 <SelectContent>
-                  {mockCommunities.filter((c) => c.is_active).map((c) => (
+                  {communities.filter((c) => c.is_active).map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -120,15 +126,14 @@ export default function Attendance() {
               </Select>
             </div>
           </div>
-          <Button onClick={handleLoad} className="gap-2"><Users className="h-4 w-4" /> Load Students</Button>
+          <Button onClick={handleLoad} disabled={!selectedCommunity || !selectedSport || !selectedSlot} className="gap-2"><Users className="h-4 w-4" /> Load Students</Button>
         </CardContent>
       </Card>
 
-      {/* Attendance List */}
       {loaded && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-base flex items-center gap-2 flex-wrap">
               <Calendar className="h-4 w-4 text-primary" />
               Mark Attendance — {selectedDate}
               {selectedSportData && <span className="text-muted-foreground font-normal">• {selectedSportData.icon} {selectedSportData.name}</span>}
@@ -143,45 +148,50 @@ export default function Attendance() {
 
             <p className="text-sm text-muted-foreground">{slotStudents.length} students enrolled</p>
 
-            <div className="space-y-3">
-              {slotStudents.map((st) => (
-                <div key={st.id} className="p-4 rounded-lg border border-border bg-card">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <p className="font-semibold">{st.student_id} • {st.name} <span className="text-muted-foreground text-xs">Age {st.age}</span></p>
-                      <p className="text-xs text-muted-foreground">Parent: {st.parent_name} • {st.parent_whatsapp}</p>
+            {slotStudents.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">No students found in this time slot</p>
+            ) : (
+              <div className="space-y-3">
+                {slotStudents.map((st) => (
+                  <div key={st.id} className="p-4 rounded-lg border border-border bg-card">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{st.student_id} • {st.name} <span className="text-muted-foreground text-xs">Age {st.age}</span></p>
+                        <p className="text-xs text-muted-foreground">Parent: {st.parent_name} • {st.parent_whatsapp}</p>
+                      </div>
+                      <RadioGroup
+                        value={attendance[st.id] || "present"}
+                        onValueChange={(v) => setAttendance((prev) => ({ ...prev, [st.id]: v as AttendanceStatus }))}
+                        className="flex gap-4"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem value="present" id={`${st.id}-p`} />
+                          <Label htmlFor={`${st.id}-p`} className="text-sm text-success cursor-pointer">Present</Label>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem value="absent" id={`${st.id}-a`} />
+                          <Label htmlFor={`${st.id}-a`} className="text-sm text-destructive cursor-pointer">Absent</Label>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem value="leave" id={`${st.id}-l`} />
+                          <Label htmlFor={`${st.id}-l`} className="text-sm text-warning cursor-pointer">Leave</Label>
+                        </div>
+                      </RadioGroup>
                     </div>
-                    <RadioGroup
-                      value={attendance[st.id] || "present"}
-                      onValueChange={(v) => setAttendance((prev) => ({ ...prev, [st.id]: v as AttendanceStatus }))}
-                      className="flex gap-4"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <RadioGroupItem value="present" id={`${st.id}-p`} />
-                        <Label htmlFor={`${st.id}-p`} className="text-sm text-success cursor-pointer">Present</Label>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <RadioGroupItem value="absent" id={`${st.id}-a`} />
-                        <Label htmlFor={`${st.id}-a`} className="text-sm text-destructive cursor-pointer">Absent</Label>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <RadioGroupItem value="leave" id={`${st.id}-l`} />
-                        <Label htmlFor={`${st.id}-l`} className="text-sm text-warning cursor-pointer">Leave</Label>
-                      </div>
-                    </RadioGroup>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
-            {/* Summary */}
             <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border">
               <div className="flex gap-4 text-sm">
                 <span className="text-success font-medium">Present: {summary.present}</span>
                 <span className="text-destructive font-medium">Absent: {summary.absent}</span>
                 <span className="text-warning font-medium">Leave: {summary.leave}</span>
               </div>
-              <Button onClick={handleSubmit} className="gap-2"><CheckCircle className="h-4 w-4" /> Submit Attendance</Button>
+              <Button onClick={handleSubmit} disabled={createAttendance.isPending || slotStudents.length === 0} className="gap-2">
+                {createAttendance.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><CheckCircle className="h-4 w-4" /> Submit Attendance</>}
+              </Button>
             </div>
           </CardContent>
         </Card>

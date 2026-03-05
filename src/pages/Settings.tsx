@@ -3,37 +3,77 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { mockCommunities, formatCurrencyFull } from "@/lib/mock-data";
-import type { Community } from "@/types/database";
+import { useCommunities, useSportPricing, formatCurrencyFull } from "@/hooks/useSupabaseData";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Settings() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [editPricing, setEditPricing] = useState<Community | null>(null);
+  const { data: communities = [], isLoading } = useCommunities();
+  const { data: allPricing = [] } = useSportPricing();
+
+  const [editPricingId, setEditPricingId] = useState<string | null>(null);
   const [pricingForm, setPricingForm] = useState({
     std_1m: "", std_3m: "", std_6m: "", prm_1m: "", prm_3m: "", prm_6m: "",
   });
+  const [saving, setSaving] = useState(false);
 
-  const openEditPricing = (c: Community) => {
-    setPricingForm({
-      std_1m: String(c.pricing.standard["1m"]),
-      std_3m: String(c.pricing.standard["3m"]),
-      std_6m: String(c.pricing.standard["6m"]),
-      prm_1m: String(c.pricing.premium["1m"]),
-      prm_3m: String(c.pricing.premium["3m"]),
-      prm_6m: String(c.pricing.premium["6m"]),
-    });
-    setEditPricing(c);
+  const editCommunity = communities.find((c) => c.id === editPricingId);
+  const commPricing = allPricing.filter((p) => p.community_id === editPricingId);
+
+  const openEditPricing = (communityId: string) => {
+    const pricing = allPricing.find((p) => p.community_id === communityId);
+    if (pricing) {
+      setPricingForm({
+        std_1m: String(pricing.standard_1month),
+        std_3m: String(pricing.standard_3months),
+        std_6m: String(pricing.standard_6months),
+        prm_1m: String(pricing.premium_1month),
+        prm_3m: String(pricing.premium_3months),
+        prm_6m: String(pricing.premium_6months),
+      });
+    }
+    setEditPricingId(communityId);
   };
 
-  const handleSavePricing = () => {
-    toast({ title: "Pricing updated!", description: editPricing?.name });
-    setEditPricing(null);
+  const handleSavePricing = async () => {
+    if (!editPricingId) return;
+    setSaving(true);
+    try {
+      const pricingRecords = allPricing.filter((p) => p.community_id === editPricingId);
+      for (const pr of pricingRecords) {
+        await supabase.from("sport_pricing").update({
+          standard_1month: Number(pricingForm.std_1m),
+          standard_3months: Number(pricingForm.std_3m),
+          standard_6months: Number(pricingForm.std_6m),
+          premium_1month: Number(pricingForm.prm_1m),
+          premium_3months: Number(pricingForm.prm_3m),
+          premium_6months: Number(pricingForm.prm_6m),
+        }).eq("id", pr.id);
+      }
+      toast({ title: "Pricing updated!" });
+      setEditPricingId(null);
+    } catch {
+      toast({ title: "Failed to update pricing", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Settings</h1>
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -60,19 +100,30 @@ export default function Settings() {
 
         <TabsContent value="communities" className="mt-4">
           <div className="space-y-3">
-            {mockCommunities.map((c) => (
-              <Card key={c.id}>
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold">{c.name} ({c.short_code})</p>
-                    <p className="text-xs text-muted-foreground">
-                      Standard: {formatCurrencyFull(c.pricing.standard["1m"])}/mo | Premium: {formatCurrencyFull(c.pricing.premium["1m"])}/mo
-                    </p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => openEditPricing(c)}>Edit Pricing</Button>
-                </CardContent>
-              </Card>
-            ))}
+            {communities.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">No communities yet</p>
+            ) : (
+              communities.map((c) => {
+                const pricing = allPricing.find((p) => p.community_id === c.id);
+                return (
+                  <Card key={c.id}>
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold">{c.name} ({c.short_code})</p>
+                        {pricing ? (
+                          <p className="text-xs text-muted-foreground">
+                            Standard: {formatCurrencyFull(Number(pricing.standard_1month))}/mo | Premium: {formatCurrencyFull(Number(pricing.premium_1month))}/mo
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No pricing set</p>
+                        )}
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => openEditPricing(c.id)}>Edit Pricing</Button>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
           </div>
         </TabsContent>
 
@@ -92,20 +143,18 @@ export default function Settings() {
           <Card>
             <CardHeader><CardTitle className="text-base">System Settings</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <p>Version: 1.0.0</p>
+              <p>Version: 2.0.0</p>
               <p>Database: Connected (Lovable Cloud)</p>
-              <p>Auth: Supabase Auth</p>
+              <p>Auth: Active</p>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
       {/* Edit Pricing Modal */}
-      <Dialog open={!!editPricing} onOpenChange={(v) => { if (!v) setEditPricing(null); }}>
+      <Dialog open={!!editPricingId} onOpenChange={(v) => { if (!v) setEditPricingId(null); }}>
         <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Edit Pricing - {editPricing?.name}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Edit Pricing - {editCommunity?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <p className="text-sm font-semibold mb-2">Standard Batch</p>
@@ -125,8 +174,10 @@ export default function Settings() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditPricing(null)}>Cancel</Button>
-            <Button onClick={handleSavePricing}>Update →</Button>
+            <Button variant="outline" onClick={() => setEditPricingId(null)}>Cancel</Button>
+            <Button onClick={handleSavePricing} disabled={saving}>
+              {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Updating...</> : "Update →"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
