@@ -348,12 +348,7 @@ export function useCreateStudent() {
         .single();
       if (error) throw error;
 
-      // Update time slot count
-      await supabase
-        .from("time_slots")
-        .update({ current_students: supabase.rpc as any })
-        .eq("id", input.time_slot_id)
-        .catch(() => {});
+      // Note: time slot count would be updated via a DB trigger in production
 
       return data;
     },
