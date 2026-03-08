@@ -33,35 +33,29 @@ export default function Login() {
     setIsLoading(true);
     try {
       if (isAdmin) {
-        // Admin login with hardcoded password check
         if (password !== ADMIN_PASSWORD) {
           setError("Invalid admin password");
           setIsLoading(false);
           return;
         }
 
-        // Try to sign in first
-        const { error: signInError } = await signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+        // Use edge function to handle admin auth (confirms email, resets password if needed)
+        const { data: fnData, error: fnError } = await supabase.functions.invoke("admin-login", {
+          body: { password },
+        });
 
-        if (signInError) {
-          // If user doesn't exist, auto-create admin account
-          console.log("Admin sign-in failed, attempting auto-signup:", signInError);
-          const { error: signUpError } = await signUp(ADMIN_EMAIL, ADMIN_PASSWORD, "Admin");
-          
-          if (signUpError) {
-            console.error("Admin signup failed:", signUpError);
-            setError("Failed to create admin account. " + signUpError);
-            setIsLoading(false);
-            return;
-          }
+        if (fnError || fnData?.error) {
+          setError(fnData?.error || "Admin login failed. Please try again.");
+          setIsLoading(false);
+          return;
+        }
 
-          // Now sign in with the newly created account
-          const { error: retryError } = await signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
-          if (retryError) {
-            setError("Admin account created but login failed. Try again.");
-            setIsLoading(false);
-            return;
-          }
+        if (fnData?.session) {
+          // Set the session from the edge function response
+          await supabase.auth.setSession({
+            access_token: fnData.session.access_token,
+            refresh_token: fnData.session.refresh_token,
+          });
         }
 
         toast.success("Welcome, Admin!");
