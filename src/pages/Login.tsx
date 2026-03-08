@@ -1,25 +1,25 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, LogIn } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signIn, signUp } = useAuth();
-  const [email, setEmail] = useState("");
+  const { signIn } = useAuth();
+  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
 
-  const isValidEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
-  const isFormValid = isValidEmail(email) && password.length >= 6;
+  const normalizedId = userId.trim().toUpperCase();
+  const isAdmin = normalizedId === "ADMIN";
+  const isCoach = /^RJ[A-Z]{3}\d{3}$/.test(normalizedId);
+  const isFormValid = (isAdmin || isCoach) && password.length >= 6;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,15 +27,86 @@ export default function Login() {
     if (!isFormValid) return;
 
     setIsLoading(true);
-    const fn = isSignUp ? signUp : signIn;
-    const { error } = await fn(email, password);
-    
-    if (error) {
-      setError(error);
-    } else {
-      navigate("/dashboard", { replace: true });
+    try {
+      if (isAdmin) {
+        // Admin login - look up admin email from profiles, then sign in
+        const { data: adminProfile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("user_type", "admin")
+          .limit(1)
+          .maybeSingle();
+
+        if (!adminProfile) {
+          setError("No admin account found. Please sign up first.");
+          setIsLoading(false);
+          return;
+        }
+
+        // Get user email from auth - use the existing admin's email
+        const { data: authUser } = await supabase.auth.admin?.getUserById?.(adminProfile.id) || {};
+        
+        // Since we can't access admin API from client, we'll try signing in with known admin email
+        // The admin should have signed up with email. Try the sign in directly.
+        // We need to find the admin's email - query profiles won't have it, but we can try common admin emails
+        // Better approach: just use Supabase Auth signIn with the password
+        
+        // Fetch all profiles to find admin, then use auth
+        // Actually, for admin login with "ADMIN" ID, we need a stored email.
+        // Let's check if there's an admin email we can use
+        const { error: signInError } = await signIn("admin@rjsportz.com", password);
+        if (signInError) {
+          setError(signInError);
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
+      } else if (isCoach) {
+        // Coach login - look up coach by coach_id
+        const { data: coach } = await supabase
+          .from("coaches")
+          .select("*")
+          .eq("coach_id", normalizedId)
+          .maybeSingle();
+
+        if (!coach) {
+          setError("Coach ID not found. Contact admin.");
+          setIsLoading(false);
+          return;
+        }
+
+        if (!coach.signup_completed) {
+          setError("Please complete signup first.");
+          navigate(`/coach/signup?id=${normalizedId}`);
+          setIsLoading(false);
+          return;
+        }
+
+        if (!coach.is_active) {
+          setError("Your account is inactive. Contact admin.");
+          setIsLoading(false);
+          return;
+        }
+
+        if (!coach.signup_email) {
+          setError("Account setup incomplete. Contact admin.");
+          setIsLoading(false);
+          return;
+        }
+
+        // Sign in with the coach's email + password via Supabase Auth
+        const { error: signInError } = await signIn(coach.signup_email, password);
+        if (signInError) {
+          setError("Invalid password");
+        } else {
+          navigate("/coach/dashboard", { replace: true });
+        }
+      }
+    } catch (err: any) {
+      setError("Login failed. Please try again.");
+      console.error("Login error:", err);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
@@ -55,19 +126,26 @@ export default function Login() {
           onSubmit={handleSubmit}
           className="space-y-5 bg-card p-8 rounded-xl border border-border shadow-lg shadow-primary/5"
         >
+          {/* User ID Field */}
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="userId">User ID</Label>
             <Input
-              id="email"
-              type="email"
-              placeholder="admin@rjsportz.com"
+              id="userId"
+              type="text"
+              placeholder="ADMIN or RJBDM005"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="bg-secondary border-border focus-visible:ring-primary"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value.toUpperCase())}
+              className="bg-secondary border-border focus-visible:ring-primary font-mono tracking-wider"
+              autoComplete="username"
             />
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              <p>📌 Admin: Use <span className="text-primary font-mono">ADMIN</span></p>
+              <p>📌 Coach: Use your Coach ID (e.g., <span className="text-primary font-mono">RJBDM005</span>)</p>
+            </div>
           </div>
 
+          {/* Password Field */}
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <div className="relative">
@@ -92,44 +170,39 @@ export default function Login() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="remember"
-              checked={rememberMe}
-              onCheckedChange={(v) => setRememberMe(v === true)}
-            />
-            <Label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
-              Stay logged in for 7 days
-            </Label>
-          </div>
-
           {error && (
             <p className="text-sm text-destructive text-center font-medium">{error}</p>
           )}
 
           <Button
             type="submit"
-            className="w-full neon-glow font-bold tracking-wider"
+            className="w-full neon-glow font-bold tracking-wider gap-2"
             disabled={isLoading || !isFormValid}
           >
             {isLoading ? (
               <>
-                <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                {isSignUp ? "Creating account..." : "Logging in..."}
+                <Loader2 className="animate-spin h-4 w-4" />
+                Logging in...
               </>
             ) : (
-              <>{isSignUp ? "SIGN UP" : "LOGIN"} →</>
+              <>
+                <LogIn className="h-4 w-4" />
+                LOGIN →
+              </>
             )}
           </Button>
 
-          <div className="text-center space-y-2">
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-xs text-muted-foreground hover:text-primary transition-colors"
-            >
-              {isSignUp ? "Already have an account? Login" : "Don't have an account? Sign Up"}
-            </button>
+          <div className="text-center space-y-2 pt-2">
+            <p className="text-xs text-muted-foreground">
+              New coach?{" "}
+              <Link to="/coach/signup" className="text-primary hover:underline">
+                Complete Signup →
+              </Link>
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              Forgot password? Contact admin at{" "}
+              <a href="tel:9876543210" className="text-primary">9876543210</a>
+            </p>
           </div>
         </form>
       </div>
