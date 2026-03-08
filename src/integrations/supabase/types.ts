@@ -762,6 +762,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       update_fee_statuses: { Args: never; Returns: undefined }
     }
     Enums: {
