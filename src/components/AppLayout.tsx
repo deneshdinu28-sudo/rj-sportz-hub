@@ -20,6 +20,11 @@ export function AppLayout() {
     return <Navigate to="/login" replace />;
   }
 
+  // Coaches should use their own portal
+  if (profile?.user_type === "coach") {
+    return <Navigate to="/coach/dashboard" replace />;
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
