@@ -17,6 +17,8 @@ import Attendance from "./pages/Attendance";
 import Coaches from "./pages/Coaches";
 import Settings from "./pages/Settings";
 import CoachDashboard from "./pages/coach/CoachDashboard";
+import CoachCommunityDetail from "./pages/coach/CoachCommunityDetail";
+import CoachStudentDetail from "./pages/coach/CoachStudentDetail";
 import CoachStudents from "./pages/coach/CoachStudents";
 import CoachAttendance from "./pages/coach/CoachAttendance";
 import NotFound from "./pages/NotFound";
