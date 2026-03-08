@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, CreditCard, Settings, LogOut, Zap, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Building2, CreditCard, Settings, LogOut, Zap, ClipboardList, Shield } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,6 +21,7 @@ const navItems = [
   { title: "Communities", url: "/communities", icon: Building2 },
   { title: "Payments", url: "/payments", icon: CreditCard },
   { title: "Attendance", url: "/attendance", icon: ClipboardList },
+  { title: "Coaches", url: "/coaches", icon: Shield },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 

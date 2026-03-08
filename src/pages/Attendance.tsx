@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CheckCircle, Users, Calendar, Loader2 } from "lucide-react";
-import { useCommunities, useSports, useStudents, useTimeSlots, useCreateAttendance, formatTime } from "@/hooks/useSupabaseData";
+import { CheckCircle, Users, Calendar, Loader2, Edit2, AlertCircle } from "lucide-react";
+import { useCommunities, useSports, useStudents, useTimeSlots, useCreateAttendance, useAttendanceByDate, formatTime } from "@/hooks/useSupabaseData";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type AttendanceStatus = "present" | "absent" | "leave";
 
@@ -18,6 +20,7 @@ export default function Attendance() {
   const { data: allStudents = [] } = useStudents();
   const { data: allTimeSlots = [] } = useTimeSlots();
   const createAttendance = useCreateAttendance();
+  const { toast } = useToast();
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [selectedCommunity, setSelectedCommunity] = useState("");
@@ -25,6 +28,13 @@ export default function Attendance() {
   const [selectedSlot, setSelectedSlot] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
+  const [originalAttendance, setOriginalAttendance] = useState<Record<string, AttendanceStatus>>({});
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [existingRecords, setExistingRecords] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const isPastDate = selectedDate < today;
 
   const filteredSports = useMemo(() => {
     if (!selectedCommunity) return [];
@@ -41,15 +51,42 @@ export default function Attendance() {
     return allStudents.filter((s) => s.sport_id === selectedSport && s.community_id === selectedCommunity && s.is_active && s.time_slot_id === selectedSlot);
   }, [selectedSlot, selectedSport, selectedCommunity, allStudents]);
 
-  const handleLoad = () => {
+  const handleLoad = async () => {
     if (!selectedCommunity || !selectedSport || !selectedSlot) return;
-    const initial: Record<string, AttendanceStatus> = {};
-    slotStudents.forEach((s) => { initial[s.id] = "present"; });
-    setAttendance(initial);
+
+    // Check for existing attendance
+    const studentIds = slotStudents.map((s) => s.id);
+    if (studentIds.length === 0) {
+      setLoaded(true);
+      setExistingRecords(false);
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from("attendance")
+      .select("*")
+      .eq("date", selectedDate)
+      .in("student_id", studentIds);
+
+    const attendanceMap: Record<string, AttendanceStatus> = {};
+    if (existing && existing.length > 0) {
+      existing.forEach((a) => {
+        attendanceMap[a.student_id] = a.status as AttendanceStatus;
+      });
+      setExistingRecords(true);
+    } else {
+      slotStudents.forEach((s) => { attendanceMap[s.id] = "present"; });
+      setExistingRecords(false);
+    }
+
+    setAttendance(attendanceMap);
+    setOriginalAttendance({ ...attendanceMap });
+    setIsEditMode(false);
     setLoaded(true);
   };
 
   const handleMarkAll = (status: AttendanceStatus) => {
+    if (isPastDate && !isEditMode) return;
     const updated: Record<string, AttendanceStatus> = {};
     slotStudents.forEach((s) => { updated[s.id] = status; });
     setAttendance(updated);
@@ -66,12 +103,53 @@ export default function Attendance() {
     setLoaded(false);
   };
 
+  const handleSaveEdit = async () => {
+    setSavingEdit(true);
+    try {
+      const changes: Array<{ student_id: string; date: string; status: string; time_slot_id: string }> = [];
+      for (const studentId of Object.keys(attendance)) {
+        if (attendance[studentId] !== originalAttendance[studentId]) {
+          changes.push({
+            student_id: studentId,
+            date: selectedDate,
+            status: attendance[studentId],
+            time_slot_id: selectedSlot,
+          });
+        }
+      }
+
+      if (changes.length === 0) {
+        toast({ title: "No changes to save" });
+        setIsEditMode(false);
+        setSavingEdit(false);
+        return;
+      }
+
+      for (const change of changes) {
+        // Delete existing then insert (upsert workaround)
+        await supabase.from("attendance").delete().eq("student_id", change.student_id).eq("date", change.date);
+        await supabase.from("attendance").insert(change);
+      }
+
+      toast({ title: `Updated attendance for ${changes.length} students` });
+      setOriginalAttendance({ ...attendance });
+      setIsEditMode(false);
+    } catch {
+      toast({ title: "Failed to update", variant: "destructive" });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const selectedSlotData = allTimeSlots.find((ts) => ts.id === selectedSlot);
   const selectedSportData = allSports.find((s) => s.id === selectedSport);
   const summary = useMemo(() => {
     const vals = Object.values(attendance);
     return { present: vals.filter((v) => v === "present").length, absent: vals.filter((v) => v === "absent").length, leave: vals.filter((v) => v === "leave").length };
   }, [attendance]);
+
+  const canEdit = isPastDate && existingRecords && !isEditMode;
+  const isReadOnly = isPastDate && !isEditMode;
 
   if (isLoading) {
     return (
@@ -89,7 +167,7 @@ export default function Attendance() {
       <Card>
         <CardContent className="p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div><Label>Date</Label><Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} /></div>
+            <div><Label>Date</Label><Input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setLoaded(false); }} /></div>
             <div>
               <Label>Community</Label>
               <Select value={selectedCommunity} onValueChange={(v) => { setSelectedCommunity(v); setSelectedSport(""); setSelectedSlot(""); setLoaded(false); }}>
@@ -133,18 +211,52 @@ export default function Attendance() {
       {loaded && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2 flex-wrap">
-              <Calendar className="h-4 w-4 text-primary" />
-              Mark Attendance — {selectedDate}
-              {selectedSportData && <span className="text-muted-foreground font-normal">• {selectedSportData.icon} {selectedSportData.name}</span>}
-              {selectedSlotData && <span className="text-muted-foreground font-normal">• {formatTime(selectedSlotData.start_time)}-{formatTime(selectedSlotData.end_time)} ({selectedSlotData.age_group}, {selectedSlotData.batch_type})</span>}
-            </CardTitle>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="text-base flex items-center gap-2 flex-wrap">
+                <Calendar className="h-4 w-4 text-primary" />
+                {isPastDate ? "View" : "Mark"} Attendance — {selectedDate}
+                {selectedSportData && <span className="text-muted-foreground font-normal">• {selectedSportData.icon} {selectedSportData.name}</span>}
+                {selectedSlotData && <span className="text-muted-foreground font-normal">• {formatTime(selectedSlotData.start_time)}-{formatTime(selectedSlotData.end_time)}</span>}
+              </CardTitle>
+              {canEdit && (
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => setIsEditMode(true)}>
+                  <Edit2 className="h-3 w-3" /> Edit Past Attendance
+                </Button>
+              )}
+              {isEditMode && (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => { setAttendance({ ...originalAttendance }); setIsEditMode(false); }}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={handleSaveEdit} disabled={savingEdit} className="gap-1">
+                    {savingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                    Save Changes
+                  </Button>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => handleMarkAll("present")} className="text-xs">Mark All Present</Button>
-              <Button variant="outline" size="sm" onClick={() => handleMarkAll("absent")} className="text-xs">Mark All Absent</Button>
-            </div>
+            {/* Info banner */}
+            {isPastDate && (
+              <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${isEditMode ? "bg-warning/10 border border-warning/30 text-warning" : "bg-muted/50 text-muted-foreground"}`}>
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {isEditMode ? "Edit mode active — modify attendance and click Save" : "Viewing past attendance (read-only). Click \"Edit\" to modify."}
+              </div>
+            )}
+            {!isPastDate && (
+              <div className="p-3 rounded-lg text-sm flex items-center gap-2 bg-success/10 border border-success/30 text-success">
+                <CheckCircle className="h-4 w-4 shrink-0" />
+                Marking attendance for {selectedDate}
+              </div>
+            )}
+
+            {!isReadOnly && (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => handleMarkAll("present")} className="text-xs">Mark All Present</Button>
+                <Button variant="outline" size="sm" onClick={() => handleMarkAll("absent")} className="text-xs">Mark All Absent</Button>
+              </div>
+            )}
 
             <p className="text-sm text-muted-foreground">{slotStudents.length} students enrolled</p>
 
@@ -161,20 +273,24 @@ export default function Attendance() {
                       </div>
                       <RadioGroup
                         value={attendance[st.id] || "present"}
-                        onValueChange={(v) => setAttendance((prev) => ({ ...prev, [st.id]: v as AttendanceStatus }))}
+                        onValueChange={(v) => {
+                          if (isReadOnly) return;
+                          setAttendance((prev) => ({ ...prev, [st.id]: v as AttendanceStatus }));
+                        }}
                         className="flex gap-4"
+                        disabled={isReadOnly}
                       >
                         <div className="flex items-center gap-1.5">
-                          <RadioGroupItem value="present" id={`${st.id}-p`} />
-                          <Label htmlFor={`${st.id}-p`} className="text-sm text-success cursor-pointer">Present</Label>
+                          <RadioGroupItem value="present" id={`${st.id}-p`} disabled={isReadOnly} />
+                          <Label htmlFor={`${st.id}-p`} className={`text-sm cursor-pointer ${isReadOnly ? "opacity-60" : "text-success"}`}>Present</Label>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <RadioGroupItem value="absent" id={`${st.id}-a`} />
-                          <Label htmlFor={`${st.id}-a`} className="text-sm text-destructive cursor-pointer">Absent</Label>
+                          <RadioGroupItem value="absent" id={`${st.id}-a`} disabled={isReadOnly} />
+                          <Label htmlFor={`${st.id}-a`} className={`text-sm cursor-pointer ${isReadOnly ? "opacity-60" : "text-destructive"}`}>Absent</Label>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <RadioGroupItem value="leave" id={`${st.id}-l`} />
-                          <Label htmlFor={`${st.id}-l`} className="text-sm text-warning cursor-pointer">Leave</Label>
+                          <RadioGroupItem value="leave" id={`${st.id}-l`} disabled={isReadOnly} />
+                          <Label htmlFor={`${st.id}-l`} className={`text-sm cursor-pointer ${isReadOnly ? "opacity-60" : "text-warning"}`}>Leave</Label>
                         </div>
                       </RadioGroup>
                     </div>
@@ -189,9 +305,11 @@ export default function Attendance() {
                 <span className="text-destructive font-medium">Absent: {summary.absent}</span>
                 <span className="text-warning font-medium">Leave: {summary.leave}</span>
               </div>
-              <Button onClick={handleSubmit} disabled={createAttendance.isPending || slotStudents.length === 0} className="gap-2">
-                {createAttendance.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><CheckCircle className="h-4 w-4" /> Submit Attendance</>}
-              </Button>
+              {!isPastDate && !existingRecords && (
+                <Button onClick={handleSubmit} disabled={createAttendance.isPending || slotStudents.length === 0} className="gap-2">
+                  {createAttendance.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><CheckCircle className="h-4 w-4" /> Submit Attendance</>}
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

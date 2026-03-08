@@ -1,11 +1,13 @@
+import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MessageSquare, Loader2, TrendingUp } from "lucide-react";
+import { ArrowLeft, MessageSquare, Loader2, TrendingUp, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useStudent, useCommunities, useSports, useStudentPayments, useSportPricing, usePromoteStudent, formatCurrencyFull } from "@/hooks/useSupabaseData";
+import { Progress } from "@/components/ui/progress";
+import { useStudent, useCommunities, useSports, useStudentPayments, useSportPricing, usePromoteStudent, useStudentAttendance, formatCurrencyFull } from "@/hooks/useSupabaseData";
 
 export default function StudentDetail() {
   const { id } = useParams();
@@ -15,7 +17,22 @@ export default function StudentDetail() {
   const { data: sports = [] } = useSports();
   const { data: studentPayments = [] } = useStudentPayments(id);
   const { data: allPricing = [] } = useSportPricing();
+  const { data: attendanceRecords = [] } = useStudentAttendance(id);
   const promoteStudent = usePromoteStudent();
+
+  const attendanceStats = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const monthRecords = attendanceRecords.filter((a) => a.date >= startOfMonth);
+    const present = monthRecords.filter((a) => a.status === "present").length;
+    const absent = monthRecords.filter((a) => a.status === "absent").length;
+    const leave = monthRecords.filter((a) => a.status === "leave").length;
+    const total = present + absent + leave;
+    const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+    return { present, absent, leave, total, pct };
+  }, [attendanceRecords]);
+
+  const monthName = new Date().toLocaleString("default", { month: "long", year: "numeric" });
 
   if (isLoading) {
     return (
@@ -126,6 +143,44 @@ export default function StudentDetail() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-semibold">{formatCurrencyFull(Number(student.fee_amount))}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Period</span><span>{student.payment_start_date} → {student.payment_end_date}</span></div>
                 {student.next_due_date && <div className="flex justify-between"><span className="text-muted-foreground">Next Due</span><span className="text-warning">{student.next_due_date}</span></div>}
+              </CardContent>
+            </Card>
+
+            {/* Attendance Info Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  Attendance — {monthName}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="p-2 rounded-lg bg-muted/50">
+                    <p className="text-xl font-bold">{attendanceStats.total}</p>
+                    <p className="text-[10px] text-muted-foreground">Total Classes</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-success/10">
+                    <p className="text-xl font-bold text-success">{attendanceStats.present}</p>
+                    <p className="text-[10px] text-muted-foreground">Present</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-destructive/10">
+                    <p className="text-xl font-bold text-destructive">{attendanceStats.absent}</p>
+                    <p className="text-[10px] text-muted-foreground">Absent</p>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Attendance Rate</span>
+                    <span className={`font-medium ${attendanceStats.pct >= 80 ? "text-success" : attendanceStats.pct >= 60 ? "text-warning" : "text-destructive"}`}>
+                      {attendanceStats.pct}%
+                    </span>
+                  </div>
+                  <Progress value={attendanceStats.pct} className="h-2" />
+                </div>
+                {attendanceStats.leave > 0 && (
+                  <p className="text-xs text-muted-foreground">Leaves: {attendanceStats.leave}</p>
+                )}
               </CardContent>
             </Card>
           </div>

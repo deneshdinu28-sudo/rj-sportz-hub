@@ -109,6 +109,109 @@ export type Database = {
           },
         ]
       }
+      coach_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          coach_id: string
+          community_id: string
+          id: string
+          sport_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          coach_id: string
+          community_id: string
+          id?: string
+          sport_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          coach_id?: string
+          community_id?: string
+          id?: string
+          sport_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_assignments_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_assignments_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_assignments_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coaches: {
+        Row: {
+          assigned_communities: string[] | null
+          assigned_sports: string[] | null
+          coach_id: string
+          coach_number: number
+          created_at: string | null
+          created_by: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          phone: string | null
+          sport_name: string
+          sport_shortcode: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          assigned_communities?: string[] | null
+          assigned_sports?: string[] | null
+          coach_id: string
+          coach_number?: number
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          phone?: string | null
+          sport_name: string
+          sport_shortcode?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          assigned_communities?: string[] | null
+          assigned_sports?: string[] | null
+          coach_id?: string
+          coach_number?: number
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          phone?: string | null
+          sport_name?: string
+          sport_shortcode?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       communities: {
         Row: {
           address: string
@@ -353,6 +456,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sport_shortcodes: {
+        Row: {
+          created_at: string | null
+          id: string
+          shortcode: string
+          sport_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          shortcode: string
+          sport_name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          shortcode?: string
+          sport_name?: string
+        }
+        Relationships: []
       }
       sports: {
         Row: {
