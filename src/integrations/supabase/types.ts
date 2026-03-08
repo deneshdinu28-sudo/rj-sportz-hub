@@ -171,6 +171,8 @@ export type Database = {
           is_active: boolean | null
           name: string
           phone: string | null
+          signup_completed: boolean | null
+          signup_email: string | null
           sport_name: string
           sport_shortcode: string
           updated_at: string | null
@@ -188,6 +190,8 @@ export type Database = {
           is_active?: boolean | null
           name: string
           phone?: string | null
+          signup_completed?: boolean | null
+          signup_email?: string | null
           sport_name: string
           sport_shortcode?: string
           updated_at?: string | null
@@ -205,6 +209,8 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           phone?: string | null
+          signup_completed?: boolean | null
+          signup_email?: string | null
           sport_name?: string
           sport_shortcode?: string
           updated_at?: string | null

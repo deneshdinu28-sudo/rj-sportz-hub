@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 export function AppLayout() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
 
   if (loading) {
     return (
@@ -18,6 +18,11 @@ export function AppLayout() {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Coaches should use their own portal
+  if (profile?.user_type === "coach") {
+    return <Navigate to="/coach/dashboard" replace />;
   }
 
   return (
