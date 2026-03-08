@@ -353,7 +353,7 @@ export default function CoachAttendance() {
                   <span className="text-destructive">A: {summary.absent}</span>
                   <span className="text-warning">L: {summary.leave}</span>
                 </div>
-                {!isPastDate && !existingRecords && (
+                {!existingRecords && (
                   <Button onClick={handleSubmit} disabled={saving || slotStudents.length === 0} size="sm" className="gap-1">
                     {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
                     Submit
