@@ -14,6 +14,17 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey || !anonKey) {
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { password } = await req.json();
 
     if (password !== ADMIN_PASSWORD) {
@@ -23,24 +34,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     // Try to find existing admin user
     const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
     let adminUser = users.find((u) => u.email === ADMIN_EMAIL);
 
     if (adminUser) {
-      // Confirm email if not confirmed
-      if (!adminUser.email_confirmed_at) {
-        await supabaseAdmin.auth.admin.updateUserById(adminUser.id, {
-          email_confirm: true,
-        });
-      }
+      // Confirm email + reset password
+      await supabaseAdmin.auth.admin.updateUserById(adminUser.id, {
+        email_confirm: true,
+        password: ADMIN_PASSWORD,
+      });
     } else {
-      // Create admin user
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email: ADMIN_EMAIL,
         password: ADMIN_PASSWORD,
@@ -51,42 +57,14 @@ Deno.serve(async (req) => {
       adminUser = data.user;
     }
 
-    // Generate a session for the admin
-    const { data: signInData, error: signInError } =
-      await supabaseAdmin.auth.admin.generateLink({
-        type: "magiclink",
-        email: ADMIN_EMAIL,
-      });
-
-    // Sign in with password (now confirmed)
-    const supabaseAnon = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!
-    );
-    
+    // Sign in with the anon key to get a proper session
+    const supabaseAnon = createClient(supabaseUrl, anonKey);
     const { data: session, error: sessionError } = await supabaseAnon.auth.signInWithPassword({
       email: ADMIN_EMAIL,
       password: ADMIN_PASSWORD,
     });
 
-    if (sessionError) {
-      // Password might be different - update it
-      await supabaseAdmin.auth.admin.updateUserById(adminUser!.id, {
-        password: ADMIN_PASSWORD,
-      });
-      
-      // Retry sign in
-      const { data: retrySession, error: retryError } = await supabaseAnon.auth.signInWithPassword({
-        email: ADMIN_EMAIL,
-        password: ADMIN_PASSWORD,
-      });
-      
-      if (retryError) throw retryError;
-      
-      return new Response(JSON.stringify({ session: retrySession.session }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (sessionError) throw sessionError;
 
     return new Response(JSON.stringify({ session: session.session }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
