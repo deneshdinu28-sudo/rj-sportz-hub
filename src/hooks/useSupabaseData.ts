@@ -58,7 +58,6 @@ export function useCreateCommunity() {
         premium_6months: number;
       }>;
     }) => {
-      // 1. Create community
       const { data: community, error: cErr } = await supabase
         .from("communities")
         .insert({
@@ -73,7 +72,6 @@ export function useCreateCommunity() {
         .single();
       if (cErr) throw cErr;
 
-      // 2. Create sports + pricing for each
       for (const s of input.sports) {
         const { data: sport, error: sErr } = await supabase
           .from("sports")
@@ -111,6 +109,78 @@ export function useCreateCommunity() {
     },
     onError: (err: Error) => {
       toast({ title: "Failed to create community", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useUpdateCommunity() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      name: string;
+      short_code: string;
+      address: string;
+      contact_person: string;
+      contact_phone: string;
+    }) => {
+      const { error } = await supabase
+        .from("communities")
+        .update({
+          name: input.name,
+          short_code: input.short_code,
+          address: input.address,
+          contact_person: input.contact_person,
+          contact_phone: input.contact_phone,
+        })
+        .eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["communities"] });
+      qc.invalidateQueries({ queryKey: ["community", vars.id] });
+      toast({ title: "Community updated!" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to update community", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useUpdateSportPricing() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      community_id: string;
+      standard_1month: number;
+      standard_3months: number;
+      standard_6months: number;
+      premium_1month: number;
+      premium_3months: number;
+      premium_6months: number;
+    }) => {
+      const { error } = await supabase
+        .from("sport_pricing")
+        .update({
+          standard_1month: input.standard_1month,
+          standard_3months: input.standard_3months,
+          standard_6months: input.standard_6months,
+          premium_1month: input.premium_1month,
+          premium_3months: input.premium_3months,
+          premium_6months: input.premium_6months,
+        })
+        .eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["sportPricing", vars.community_id] });
+      toast({ title: "Pricing updated!" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to update pricing", description: err.message, variant: "destructive" });
     },
   });
 }
@@ -319,10 +389,6 @@ export function useCreateStudent() {
       joining_date: string;
       batch_time: string;
     }) => {
-      const joiningDate = new Date(input.joining_date);
-      const monthsMap: Record<string, number> = { "1m": 1, "3m": 3, "6m": 6 };
-      const months = monthsMap[input.payment_plan] || 1;
-
       const { data, error } = await supabase
         .from("students")
         .insert({
@@ -347,9 +413,6 @@ export function useCreateStudent() {
         .select()
         .single();
       if (error) throw error;
-
-      // Note: time slot count would be updated via a DB trigger in production
-
       return data;
     },
     onSuccess: (data, vars) => {
@@ -360,6 +423,27 @@ export function useCreateStudent() {
     },
     onError: (err: Error) => {
       toast({ title: "Failed to enroll student", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useUpdateStudent() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (input: { id: string; updates: Record<string, unknown> }) => {
+      const { error } = await supabase
+        .from("students")
+        .update(input.updates)
+        .eq("id", input.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["student"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to update student", description: err.message, variant: "destructive" });
     },
   });
 }
@@ -408,7 +492,6 @@ export function useMarkPayment() {
       transaction_id: string;
       plan_period: string;
     }) => {
-      // Get student for date calculations
       const { data: student } = await supabase
         .from("students")
         .select("*")
@@ -444,7 +527,6 @@ export function useMarkPayment() {
         .single();
       if (pErr) throw pErr;
 
-      // Update student status
       const { error: sErr } = await supabase
         .from("students")
         .update({
@@ -524,14 +606,12 @@ export function usePromoteStudent() {
       new_fee: number;
       reason?: string;
     }) => {
-      // Update student
       const { error: sErr } = await supabase
         .from("students")
         .update({ batch_type: input.to_batch, fee_amount: input.new_fee })
         .eq("id", input.student_id);
       if (sErr) throw sErr;
 
-      // Log promotion
       const { error: pErr } = await supabase.from("batch_promotions").insert({
         student_id: input.student_id,
         student_code: input.student_code,
