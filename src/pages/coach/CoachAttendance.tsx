@@ -13,7 +13,7 @@ import { ArrowLeft, CheckCircle, Loader2, Calendar, Edit2, AlertCircle } from "l
 import { useToast } from "@/hooks/use-toast";
 import { formatTime } from "@/hooks/useSupabaseData";
 
-type AttendanceStatus = "present" | "absent" | "leave";
+type AttendanceStatus = "present" | "absent";
 
 interface StudentRow {
   id: string;
