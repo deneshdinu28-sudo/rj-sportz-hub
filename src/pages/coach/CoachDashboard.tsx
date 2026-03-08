@@ -5,19 +5,26 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LogOut, Users, MapPin, Calendar, ChevronRight, Trophy } from "lucide-react";
+import { LogOut, Users, MapPin, Calendar, TrendingUp, Clock } from "lucide-react";
 
-interface Assignment {
-  community: { id: string; name: string; short_code: string; address: string };
+interface CommunityCard {
+  communityId: string;
+  communityName: string;
+  shortCode: string;
+  address: string;
   sports: Array<{ assignmentId: string; sportId: string; sportName: string; sportIcon: string }>;
+  studentCount: number;
+  slotCount: number;
 }
 
 export default function CoachDashboard() {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [communities, setCommunities] = useState<CommunityCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalStudents, setTotalStudents] = useState(0);
+  const [studentGrowth, setStudentGrowth] = useState(0);
+  const [upcomingClasses, setUpcomingClasses] = useState(0);
 
   useEffect(() => {
     if (profile?.coach_id) loadData();
@@ -25,7 +32,6 @@ export default function CoachDashboard() {
 
   const loadData = async () => {
     try {
-      // Get coach record from coaches table
       const { data: coachRecord } = await supabase
         .from("coaches")
         .select("id")
@@ -34,34 +40,75 @@ export default function CoachDashboard() {
 
       if (!coachRecord) { setLoading(false); return; }
 
-      // Get assignments
       const { data: assignmentsData } = await supabase
         .from("coach_assignments")
         .select("id, community_id, sport_id")
         .eq("coach_id", coachRecord.id);
 
       if (!assignmentsData || assignmentsData.length === 0) {
-        setAssignments([]);
+        setCommunities([]);
         setLoading(false);
         return;
       }
 
-      // Get community and sport details
       const communityIds = [...new Set(assignmentsData.map((a) => a.community_id))];
       const sportIds = [...new Set(assignmentsData.map((a) => a.sport_id))];
 
-      const [{ data: communities }, { data: sports }] = await Promise.all([
+      const [{ data: comms }, { data: sports }, { data: slots }] = await Promise.all([
         supabase.from("communities").select("id, name, short_code, address").in("id", communityIds),
         supabase.from("sports").select("id, name, icon").in("id", sportIds),
+        supabase.from("time_slots").select("id, community_id, sport_id").eq("is_active", true).in("community_id", communityIds),
       ]);
 
-      // Group by community
-      const grouped: Record<string, Assignment> = {};
+      // Count students per assignment and growth
+      let total = 0;
+      let growth = 0;
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+
+      const studentCounts: Record<string, number> = {};
+
+      for (const a of assignmentsData) {
+        const key = `${a.community_id}_${a.sport_id}`;
+        const { count } = await supabase
+          .from("students")
+          .select("*", { count: "exact", head: true })
+          .eq("sport_id", a.sport_id)
+          .eq("community_id", a.community_id)
+          .eq("is_active", true);
+        const c = count || 0;
+        studentCounts[key] = c;
+        total += c;
+
+        const { count: newCount } = await supabase
+          .from("students")
+          .select("*", { count: "exact", head: true })
+          .eq("sport_id", a.sport_id)
+          .eq("community_id", a.community_id)
+          .eq("is_active", true)
+          .gte("joining_date", startOfMonth);
+        growth += newCount || 0;
+      }
+
+      setTotalStudents(total);
+      setStudentGrowth(growth);
+
+      // Build community cards
+      const grouped: Record<string, CommunityCard> = {};
       for (const a of assignmentsData) {
         if (!grouped[a.community_id]) {
-          const comm = communities?.find((c) => c.id === a.community_id);
+          const comm = comms?.find((c) => c.id === a.community_id);
           if (!comm) continue;
-          grouped[a.community_id] = { community: comm, sports: [] };
+          const communitySlots = slots?.filter(s => s.community_id === a.community_id && sportIds.includes(s.sport_id)) || [];
+          grouped[a.community_id] = {
+            communityId: comm.id,
+            communityName: comm.name,
+            shortCode: comm.short_code,
+            address: comm.address,
+            sports: [],
+            studentCount: 0,
+            slotCount: communitySlots.length,
+          };
         }
         const sport = sports?.find((s) => s.id === a.sport_id);
         if (sport) {
@@ -72,21 +119,19 @@ export default function CoachDashboard() {
             sportIcon: sport.icon,
           });
         }
+        const key = `${a.community_id}_${a.sport_id}`;
+        grouped[a.community_id].studentCount += studentCounts[key] || 0;
       }
-      setAssignments(Object.values(grouped));
+      setCommunities(Object.values(grouped));
 
-      // Count students
-      let total = 0;
-      for (const a of assignmentsData) {
-        const { count } = await supabase
-          .from("students")
-          .select("*", { count: "exact", head: true })
-          .eq("sport_id", a.sport_id)
-          .eq("community_id", a.community_id)
-          .eq("is_active", true);
-        total += count || 0;
-      }
-      setTotalStudents(total);
+      // Upcoming classes = today's day matching slots
+      const dayName = now.toLocaleDateString("en-US", { weekday: "long" });
+      const todaySlots = slots?.filter(s => {
+        const assignment = assignmentsData.find(a => a.community_id === s.community_id && a.sport_id === s.sport_id);
+        return !!assignment;
+      }) || [];
+      setUpcomingClasses(todaySlots.length);
+
     } catch (err) {
       console.error("Error loading coach data:", err);
     } finally {
@@ -135,86 +180,90 @@ export default function CoachDashboard() {
         {/* Welcome */}
         <div>
           <h1 className="text-2xl font-bold">Welcome, {profile?.first_name}! 👋</h1>
-          <p className="text-sm text-muted-foreground">{profile?.sport_name} Coach • Manage your classes and students</p>
+          <p className="text-sm text-muted-foreground">{profile?.sport_name} Coach</p>
         </div>
 
-        {/* Stats */}
+        {/* Overview Stats */}
         <div className="grid grid-cols-3 gap-3">
-          <Card>
+          <Card className="border-border/50">
             <CardContent className="p-4 text-center">
               <MapPin className="h-5 w-5 mx-auto text-primary mb-1" />
-              <p className="text-2xl font-bold">{assignments.length}</p>
+              <p className="text-2xl font-bold">{communities.length}</p>
               <p className="text-xs text-muted-foreground">Communities</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-border/50">
             <CardContent className="p-4 text-center">
               <Users className="h-5 w-5 mx-auto text-primary mb-1" />
               <p className="text-2xl font-bold">{totalStudents}</p>
               <p className="text-xs text-muted-foreground">Students</p>
+              {studentGrowth > 0 && (
+                <p className="text-[10px] text-success flex items-center justify-center gap-0.5 mt-0.5">
+                  <TrendingUp className="h-3 w-3" /> +{studentGrowth} this month
+                </p>
+              )}
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-border/50">
             <CardContent className="p-4 text-center">
-              <Calendar className="h-5 w-5 mx-auto text-primary mb-1" />
-              <p className="text-2xl font-bold">—</p>
-              <p className="text-xs text-muted-foreground">Classes/Week</p>
+              <Clock className="h-5 w-5 mx-auto text-primary mb-1" />
+              <p className="text-2xl font-bold">{upcomingClasses}</p>
+              <p className="text-xs text-muted-foreground">Slots Today</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Assignments */}
+        {/* Communities */}
         <div className="space-y-3">
-          <h2 className="text-lg font-bold">Your Assignments</h2>
+          <h2 className="text-lg font-bold">Your Communities</h2>
 
-          {assignments.length === 0 ? (
+          {communities.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
-                <Trophy className="h-10 w-10 mx-auto text-muted-foreground mb-3 opacity-50" />
-                <p className="font-medium">No Assignments Yet</p>
+                <MapPin className="h-10 w-10 mx-auto text-muted-foreground mb-3 opacity-50" />
+                <p className="font-medium">No Communities Assigned</p>
                 <p className="text-sm text-muted-foreground mt-1">Contact admin to get assigned to communities.</p>
               </CardContent>
             </Card>
           ) : (
-            assignments.map((assignment) => (
-              <Card key={assignment.community.id}>
-                <CardContent className="p-4 space-y-3">
-                  <div>
-                    <h3 className="font-bold flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-primary" />
-                      {assignment.community.name}
-                    </h3>
-                    <p className="text-xs text-muted-foreground ml-6">
-                      {assignment.community.short_code} • {assignment.community.address}
-                    </p>
+            communities.map((comm) => (
+              <Card
+                key={comm.communityId}
+                className="cursor-pointer hover:border-primary/40 transition-colors"
+                onClick={() => navigate(`/coach/community/${comm.communityId}`)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-bold flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-primary" />
+                        {comm.communityName}
+                      </h3>
+                      <p className="text-xs text-muted-foreground ml-6">
+                        {comm.shortCode} • {comm.address}
+                      </p>
+
+                      {/* Sport tags */}
+                      <div className="flex flex-wrap gap-1.5 mt-2 ml-6">
+                        {comm.sports.map((s) => (
+                          <span key={s.assignmentId} className="inline-flex items-center gap-1 text-xs bg-muted/50 border border-border rounded-full px-2.5 py-0.5">
+                            {s.sportIcon} {s.sportName}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-2 ml-6">
-                    {assignment.sports.map((sport) => (
-                      <div key={sport.assignmentId} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
-                        <div className="flex items-center gap-2">
-                          <span>{sport.sportIcon}</span>
-                          <span className="font-medium text-sm">{sport.sportName}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs gap-1"
-                            onClick={() => navigate(`/coach/students/${sport.assignmentId}`)}
-                          >
-                            <Users className="h-3 w-3" /> Students
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="text-xs gap-1"
-                            onClick={() => navigate(`/coach/attendance/${sport.assignmentId}`)}
-                          >
-                            <Calendar className="h-3 w-3" /> Attendance
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                  {/* Bottom stats */}
+                  <div className="flex gap-4 mt-3 ml-6">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Users className="h-3.5 w-3.5" />
+                      <span className="font-medium text-foreground">{comm.studentCount}</span> students
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span className="font-medium text-foreground">{comm.slotCount}</span> slots
+                    </div>
                   </div>
                 </CardContent>
               </Card>

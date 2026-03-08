@@ -55,6 +55,8 @@ const App = () => (
             {/* Coach Routes (protected by CoachGuard) */}
             <Route element={<CoachGuard />}>
               <Route path="/coach/dashboard" element={<CoachDashboard />} />
+              <Route path="/coach/community/:communityId" element={<CoachCommunityDetail />} />
+              <Route path="/coach/student/:studentId" element={<CoachStudentDetail />} />
               <Route path="/coach/students/:assignmentId" element={<CoachStudents />} />
               <Route path="/coach/attendance/:assignmentId" element={<CoachAttendance />} />
             </Route>
