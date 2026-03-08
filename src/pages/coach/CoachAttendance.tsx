@@ -298,7 +298,7 @@ export default function CoachAttendance() {
                 </div>
               )}
 
-              {!isReadOnly && (
+              {!(isPastDate && existingRecords && !isEditMode) && (
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => handleMarkAll("present")} className="text-xs">All Present</Button>
                   <Button variant="outline" size="sm" onClick={() => handleMarkAll("absent")} className="text-xs">All Absent</Button>
