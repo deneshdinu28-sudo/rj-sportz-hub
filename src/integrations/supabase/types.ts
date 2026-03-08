@@ -400,6 +400,48 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          coach_id: string | null
+          created_at: string | null
+          first_name: string | null
+          id: string
+          is_active: boolean | null
+          last_name: string | null
+          phone: string | null
+          sport_name: string | null
+          updated_at: string | null
+          user_type: string
+          whatsapp: string | null
+        }
+        Insert: {
+          coach_id?: string | null
+          created_at?: string | null
+          first_name?: string | null
+          id: string
+          is_active?: boolean | null
+          last_name?: string | null
+          phone?: string | null
+          sport_name?: string | null
+          updated_at?: string | null
+          user_type?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          coach_id?: string | null
+          created_at?: string | null
+          first_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_name?: string | null
+          phone?: string | null
+          sport_name?: string | null
+          updated_at?: string | null
+          user_type?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       sport_pricing: {
         Row: {
           community_id: string

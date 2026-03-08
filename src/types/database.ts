@@ -132,5 +132,19 @@ export interface Attendance {
   marked_at: string;
 }
 
+export interface Profile {
+  id: string;
+  user_type: "admin" | "coach";
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  coach_id: string | null;
+  sport_name: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export type SportWithStudents = Sport & { students: Student[] };
 export type CommunityWithSports = Community & { sports: SportWithStudents[] };

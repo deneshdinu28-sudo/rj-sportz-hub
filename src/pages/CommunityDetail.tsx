@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Phone, MessageSquare, Plus, ChevronDown, ChevronUp, Search, Edit2, Users, Trophy, IndianRupee, AlertTriangle, Clock, Loader2, MapPin, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useCommunity, useSports, useStudents, useSportPricing, useTimeSlots, useGlobalSports,
   useCreateSport, useCreateTimeSlot, useCreateStudent, useUpdateCommunity, useUpdateSportPricing,
-  formatCurrencyFull, formatCurrency, formatTime,
+  useCreateCoachAssignment, formatCurrencyFull, formatCurrency, formatTime,
 } from "@/hooks/useSupabaseData";
 
 export default function CommunityDetail() {
@@ -35,6 +36,7 @@ export default function CommunityDetail() {
   const createStudent = useCreateStudent();
   const updateCommunity = useUpdateCommunity();
   const updateSportPricing = useUpdateSportPricing();
+  const createCoachAssignment = useCreateCoachAssignment();
 
   const [search, setSearch] = useState("");
   const [feeFilter, setFeeFilter] = useState("all");
@@ -53,10 +55,12 @@ export default function CommunityDetail() {
   });
 
   const [sportForm, setSportForm] = useState({
-    sportName: "", sportIcon: "", coach_name: "", coach_phone: "",
+    sportName: "", sportIcon: "", coach_id: "", coach_name: "", coach_phone: "",
     standard_1month: "3000", standard_3months: "8500", standard_6months: "16000",
     premium_1month: "4500", premium_3months: "12500", premium_6months: "24000",
   });
+
+  const [availableCoaches, setAvailableCoaches] = useState<Array<{ id: string; coach_id: string; name: string; phone: string | null; sport_name: string }>>([]);
 
   const [slotForm, setSlotForm] = useState({
     start_time: "16:00", end_time: "17:00", age_group: "kids", batch_type: "standard",
@@ -165,7 +169,7 @@ export default function CommunityDetail() {
   };
 
   const handleSaveSport = async () => {
-    await createSport.mutateAsync({
+    const sport = await createSport.mutateAsync({
       name: sportForm.sportName,
       icon: sportForm.sportIcon,
       community_id: id!,
@@ -178,6 +182,16 @@ export default function CommunityDetail() {
       premium_3months: Number(sportForm.premium_3months),
       premium_6months: Number(sportForm.premium_6months),
     });
+    
+    // Create coach assignment if coach was selected
+    if (sportForm.coach_id && sport?.id) {
+      await createCoachAssignment.mutateAsync({
+        coach_id: sportForm.coach_id,
+        community_id: id!,
+        sport_id: sport.id,
+      });
+    }
+    
     setAddSportOpen(false);
   };
 
@@ -337,7 +351,8 @@ export default function CommunityDetail() {
             </Select>
             <Button onClick={() => openAddStudent()} className="gap-1"><Plus className="h-4 w-4" /> Add Student</Button>
             <Button variant="outline" onClick={() => {
-              setSportForm({ sportName: "", sportIcon: "", coach_name: "", coach_phone: "", standard_1month: "3000", standard_3months: "8500", standard_6months: "16000", premium_1month: "4500", premium_3months: "12500", premium_6months: "24000" });
+              setSportForm({ sportName: "", sportIcon: "", coach_id: "", coach_name: "", coach_phone: "", standard_1month: "3000", standard_3months: "8500", standard_6months: "16000", premium_1month: "4500", premium_3months: "12500", premium_6months: "24000" });
+              setAvailableCoaches([]);
               setAddSportOpen(true);
             }} className="gap-1"><Plus className="h-4 w-4" /> Add Sport</Button>
           </div>
@@ -599,9 +614,19 @@ export default function CommunityDetail() {
           <div className="space-y-4">
             <div>
               <Label>Select Sport *</Label>
-              <Select value={sportForm.sportName} onValueChange={(v) => {
+              <Select value={sportForm.sportName} onValueChange={async (v) => {
                 const gs = globalSports.find((g) => g.name === v);
-                if (gs) setSportForm((p) => ({ ...p, sportName: gs.name, sportIcon: gs.icon || "🏃" }));
+                if (gs) {
+                  setSportForm((p) => ({ ...p, sportName: gs.name, sportIcon: gs.icon || "🏃", coach_id: "", coach_name: "", coach_phone: "" }));
+                  // Load coaches for this sport
+                  const { data: coaches } = await supabase
+                    .from("coaches")
+                    .select("id, coach_id, name, phone, sport_name")
+                    .eq("sport_name", gs.name)
+                    .eq("is_active", true)
+                    .order("name");
+                  setAvailableCoaches(coaches || []);
+                }
               }}>
                 <SelectTrigger><SelectValue placeholder="Select sport" /></SelectTrigger>
                 <SelectContent>
@@ -611,8 +636,41 @@ export default function CommunityDetail() {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>Coach Name *</Label><Input value={sportForm.coach_name} onChange={(e) => setSportForm((p) => ({ ...p, coach_name: e.target.value }))} placeholder="Ramesh Kumar" /></div>
-            <div><Label>Coach Phone *</Label><Input value={sportForm.coach_phone} onChange={(e) => setSportForm((p) => ({ ...p, coach_phone: e.target.value }))} placeholder="9876543210" /></div>
+            
+            {/* Coach Dropdown */}
+            {sportForm.sportName && (
+              <div>
+                <Label>Assign Coach *</Label>
+                <Select value={sportForm.coach_id} onValueChange={(v) => {
+                  const coach = availableCoaches.find(c => c.id === v);
+                  if (coach) {
+                    setSportForm(p => ({ ...p, coach_id: coach.id, coach_name: coach.name, coach_phone: coach.phone || "" }));
+                  }
+                }}>
+                  <SelectTrigger><SelectValue placeholder="Select coach" /></SelectTrigger>
+                  <SelectContent>
+                    {availableCoaches.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} ({c.coach_id}) {c.phone ? `— ${c.phone}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {availableCoaches.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">No coaches available for {sportForm.sportName}. Add a coach first from the Coaches page.</p>
+                )}
+              </div>
+            )}
+
+            {/* Selected Coach Info */}
+            {sportForm.coach_id && sportForm.coach_name && (
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground mb-1">Selected Coach</p>
+                <p className="font-medium">{sportForm.coach_name}</p>
+                {sportForm.coach_phone && <p className="text-sm text-muted-foreground">📞 {sportForm.coach_phone}</p>}
+              </div>
+            )}
+
             <div className="border-t border-border pt-3">
               <p className="text-sm font-semibold mb-3">STANDARD BATCH PRICING</p>
               <div className="grid grid-cols-3 gap-2">
@@ -632,7 +690,7 @@ export default function CommunityDetail() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddSportOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveSport} disabled={createSport.isPending || !sportForm.sportName}>
+            <Button onClick={handleSaveSport} disabled={createSport.isPending || !sportForm.sportName || !sportForm.coach_id}>
               {createSport.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Adding...</> : "Add Sport →"}
             </Button>
           </DialogFooter>
