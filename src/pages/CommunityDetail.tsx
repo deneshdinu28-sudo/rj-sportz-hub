@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Phone, MessageSquare, Plus, ChevronDown, ChevronUp, Search, Edit2, Users, Trophy, IndianRupee, AlertTriangle, Clock, Loader2 } from "lucide-react";
+import { ArrowLeft, Phone, MessageSquare, Plus, ChevronDown, ChevronUp, Search, Edit2, Users, Trophy, IndianRupee, AlertTriangle, Clock, Loader2, MapPin, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   useCommunity, useSports, useStudents, useSportPricing, useTimeSlots, useGlobalSports,
-  useCreateSport, useCreateTimeSlot, useCreateStudent,
+  useCreateSport, useCreateTimeSlot, useCreateStudent, useUpdateCommunity, useUpdateSportPricing,
   formatCurrencyFull, formatCurrency, formatTime,
 } from "@/hooks/useSupabaseData";
 
@@ -31,6 +31,8 @@ export default function CommunityDetail() {
   const createSport = useCreateSport();
   const createTimeSlot = useCreateTimeSlot();
   const createStudent = useCreateStudent();
+  const updateCommunity = useUpdateCommunity();
+  const updateSportPricing = useUpdateSportPricing();
 
   const [search, setSearch] = useState("");
   const [feeFilter, setFeeFilter] = useState("all");
@@ -39,6 +41,7 @@ export default function CommunityDetail() {
   const [addStudentOpen, setAddStudentOpen] = useState(false);
   const [addSportOpen, setAddSportOpen] = useState(false);
   const [addSlotOpen, setAddSlotOpen] = useState(false);
+  const [editCommunityOpen, setEditCommunityOpen] = useState(false);
   const [slotSportId, setSlotSportId] = useState("");
 
   const [studentForm, setStudentForm] = useState({
@@ -57,6 +60,14 @@ export default function CommunityDetail() {
     start_time: "16:00", end_time: "17:00", age_group: "kids", batch_type: "standard",
     max_students: "30", active_days: ["Monday", "Wednesday", "Friday"] as string[],
   });
+
+  const [editForm, setEditForm] = useState({
+    name: "", short_code: "", address: "", contact_person: "", contact_phone: "",
+  });
+  const [editPricingForms, setEditPricingForms] = useState<Record<string, {
+    standard_1month: string; standard_3months: string; standard_6months: string;
+    premium_1month: string; premium_3months: string; premium_6months: string;
+  }>>({});
 
   const selectedSport = commSports.find((s) => s.id === studentForm.sport_id);
   const studentSlots = useMemo(() => {
@@ -182,6 +193,54 @@ export default function CommunityDetail() {
     setAddSlotOpen(false);
   };
 
+  const openEditCommunity = () => {
+    setEditForm({
+      name: community.name,
+      short_code: community.short_code,
+      address: community.address,
+      contact_person: community.contact_person,
+      contact_phone: community.contact_phone,
+    });
+    const pricingMap: typeof editPricingForms = {};
+    commPricing.forEach((p) => {
+      pricingMap[p.id] = {
+        standard_1month: String(p.standard_1month),
+        standard_3months: String(p.standard_3months),
+        standard_6months: String(p.standard_6months),
+        premium_1month: String(p.premium_1month),
+        premium_3months: String(p.premium_3months),
+        premium_6months: String(p.premium_6months),
+      };
+    });
+    setEditPricingForms(pricingMap);
+    setEditCommunityOpen(true);
+  };
+
+  const handleUpdateCommunity = async () => {
+    await updateCommunity.mutateAsync({
+      id: id!,
+      name: editForm.name,
+      short_code: editForm.short_code,
+      address: editForm.address,
+      contact_person: editForm.contact_person,
+      contact_phone: editForm.contact_phone,
+    });
+    // Update pricing for each sport
+    for (const [pricingId, values] of Object.entries(editPricingForms)) {
+      await updateSportPricing.mutateAsync({
+        id: pricingId,
+        community_id: id!,
+        standard_1month: Number(values.standard_1month),
+        standard_3months: Number(values.standard_3months),
+        standard_6months: Number(values.standard_6months),
+        premium_1month: Number(values.premium_1month),
+        premium_3months: Number(values.premium_3months),
+        premium_6months: Number(values.premium_6months),
+      });
+    }
+    setEditCommunityOpen(false);
+  };
+
   const allDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   return (
@@ -192,153 +251,250 @@ export default function CommunityDetail() {
           <Button variant="ghost" size="sm" onClick={() => navigate("/communities")} className="mb-2 -ml-2 text-muted-foreground">
             <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </Button>
-          <h1 className="text-2xl font-bold">{community.name} <span className="text-muted-foreground">({community.short_code})</span></h1>
-          <p className="text-sm text-muted-foreground">{community.address}</p>
-          {community.contact_person && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {community.contact_person} • <a href={`tel:+91${community.contact_phone}`} className="text-primary hover:underline">📞 {community.contact_phone}</a>
-            </p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">{community.name} <span className="text-muted-foreground">({community.short_code})</span></h1>
+            <Button variant="ghost" size="icon" onClick={openEditCommunity} className="h-8 w-8 text-muted-foreground hover:text-primary" title="Edit Community">
+              <Edit2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Left sidebar + Right content layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+        {/* LEFT SIDEBAR - Community Info */}
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Address</p>
+                  <p className="text-sm">{community.address || "Not set"}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <User className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Contact Person</p>
+                  <p className="text-sm">{community.contact_person || "Not set"}</p>
+                </div>
+              </div>
+              {community.contact_phone && (
+                <div className="flex items-start gap-3">
+                  <Phone className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Phone</p>
+                    <a href={`tel:+91${community.contact_phone}`} className="text-sm text-primary hover:underline">📞 {community.contact_phone}</a>
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t border-border pt-3 grid grid-cols-2 gap-3">
+                <div className="text-center p-2 rounded-lg bg-muted/50">
+                  <p className="text-xl font-bold">{stats.students}</p>
+                  <p className="text-[10px] text-muted-foreground">Students</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-muted/50">
+                  <p className="text-xl font-bold">{stats.sports}</p>
+                  <p className="text-[10px] text-muted-foreground">Sports</p>
+                </div>
+              </div>
+
+              <div className="border-t border-border pt-3">
+                <p className="text-xs text-muted-foreground">Revenue</p>
+                <p className="text-2xl font-bold text-primary">{formatCurrency(stats.revenue)}</p>
+              </div>
+
+              <div className="border-t border-border pt-3">
+                <p className="text-xs text-muted-foreground">Pending</p>
+                <p className="text-lg font-bold text-warning">{stats.pending} students</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* RIGHT CONTENT */}
+        <div className="space-y-4">
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search students..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+            </div>
+            <Select value={feeFilter} onValueChange={setFeeFilter}>
+              <SelectTrigger className="w-[120px]"><SelectValue placeholder="Fee" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent>
+            </Select>
+            <Button onClick={() => openAddStudent()} className="gap-1"><Plus className="h-4 w-4" /> Add Student</Button>
+            <Button variant="outline" onClick={() => {
+              setSportForm({ sportName: "", sportIcon: "", coach_name: "", coach_phone: "", standard_1month: "3000", standard_3months: "8500", standard_6months: "16000", premium_1month: "4500", premium_3months: "12500", premium_6months: "24000" });
+              setAddSportOpen(true);
+            }} className="gap-1"><Plus className="h-4 w-4" /> Add Sport</Button>
+          </div>
+
+          {/* Sports with Time Slots */}
+          {commSports.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Trophy className="h-10 w-10 mx-auto mb-3" />
+              <p className="font-medium">No sports added yet</p>
+              <p className="text-sm mt-1">Add a sport to start creating batches and enrolling students</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {commSports.map((sport) => {
+                const sportStudents = getFilteredStudents(sport.id);
+                const expanded = expandedSports.has(sport.id);
+                const paid = sportStudents.filter((s) => s.fee_status === "paid").length;
+                const pending = sportStudents.length - paid;
+                const revenue = sportStudents.filter((s) => s.fee_status === "paid").reduce((sum, s) => sum + Number(s.fee_amount), 0);
+                const sportSlots = commTimeSlots.filter((ts) => ts.sport_id === sport.id);
+                const pricing = commPricing.find((sp) => sp.sport_id === sport.id);
+
+                return (
+                  <Card key={sport.id} className="overflow-hidden">
+                    <div className="p-4 cursor-pointer hover:bg-muted/30 transition-colors flex items-start justify-between" onClick={() => toggleSport(sport.id)}>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg">{sport.icon}</span>
+                          <h3 className="font-bold text-lg">{sport.name}</h3>
+                          {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                        <p className="text-sm text-muted-foreground">Coach: {sport.coach_name} • {sport.coach_phone}</p>
+                        {pricing && !expanded && (
+                          <p className="text-sm text-muted-foreground mt-1">Standard: {formatCurrencyFull(Number(pricing.standard_1month))}/mo | Premium: {formatCurrencyFull(Number(pricing.premium_1month))}/mo</p>
+                        )}
+                      </div>
+                      <div className="text-right text-sm">
+                        <p className="font-semibold">👥 {sportStudents.length} • 💰 {formatCurrency(revenue)}</p>
+                        <p className="text-muted-foreground">{paid} paid, {pending} pending</p>
+                      </div>
+                    </div>
+
+                    {expanded && (
+                      <div className="border-t border-border">
+                        {pricing && (
+                          <div className="px-4 pt-3 pb-2 text-sm text-muted-foreground">
+                            <p>Standard: {formatCurrencyFull(Number(pricing.standard_1month))}/1M | {formatCurrencyFull(Number(pricing.standard_3months))}/3M | {formatCurrencyFull(Number(pricing.standard_6months))}/6M</p>
+                            <p>Premium: {formatCurrencyFull(Number(pricing.premium_1month))}/1M | {formatCurrencyFull(Number(pricing.premium_3months))}/3M | {formatCurrencyFull(Number(pricing.premium_6months))}/6M</p>
+                          </div>
+                        )}
+
+                        <div className="px-4 py-2 flex items-center justify-between">
+                          <p className="text-sm font-semibold">TIME SLOTS & BATCHES</p>
+                          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={(e) => { e.stopPropagation(); setSlotSportId(sport.id); setSlotForm({ start_time: "16:00", end_time: "17:00", age_group: "kids", batch_type: "standard", max_students: "30", active_days: ["Monday", "Wednesday", "Friday"] }); setAddSlotOpen(true); }}>
+                            <Plus className="h-3 w-3" /> Create Time Slot
+                          </Button>
+                        </div>
+
+                        {sportSlots.length === 0 && <p className="px-4 pb-3 text-sm text-muted-foreground italic">No batches yet. Create time slots above.</p>}
+
+                        {sportSlots.map((slot) => {
+                          const slotStudents = sportStudents.filter((s) => s.time_slot_id === slot.id);
+                          return (
+                            <div key={slot.id} className="border-t border-border/50 px-4 py-3">
+                              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-semibold flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {formatTime(slot.start_time)} - {formatTime(slot.end_time)}</span>
+                                  <Badge variant="secondary" className="text-xs">{slot.age_group === "kids" ? "👶 Kids" : "🧑 Adults"}</Badge>
+                                  <Badge variant={slot.batch_type === "premium" ? "default" : "secondary"} className="text-xs">{slot.batch_type === "premium" ? "⭐ Premium" : "Standard"}</Badge>
+                                  {slot.active_days && <span className="text-xs text-muted-foreground">{(slot.active_days as string[]).join(", ")}</span>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground">{slot.current_students}/{slot.max_students} students</span>
+                                  <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => openAddStudent(sport.id)}><Plus className="h-3 w-3" /> Add Student</Button>
+                                </div>
+                              </div>
+
+                              {slotStudents.length > 0 && (
+                                <div className="rounded-lg border border-border overflow-auto max-h-[250px] scrollbar-hide">
+                                  <table className="w-full text-sm">
+                                    <thead className="bg-muted/50 sticky top-0">
+                                      <tr className="text-left text-xs text-muted-foreground">
+                                        <th className="p-2">ID</th><th className="p-2">Name</th>
+                                        <th className="p-2 hidden sm:table-cell">Parent</th>
+                                        <th className="p-2">Fee</th><th className="p-2">Status</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {slotStudents.map((st) => (
+                                        <tr key={st.id} onClick={() => navigate(`/students/${st.id}`)} className="border-t border-border/30 cursor-pointer hover:bg-muted/30 transition-colors">
+                                          <td className="p-2 font-mono text-xs text-muted-foreground">{st.student_id}</td>
+                                          <td className="p-2 font-medium">{st.name}</td>
+                                          <td className="p-2 hidden sm:table-cell text-muted-foreground">{st.parent_name}</td>
+                                          <td className="p-2 text-xs">{formatCurrencyFull(Number(st.fee_amount))}</td>
+                                          <td className="p-2"><Badge variant={st.fee_status === "paid" ? "default" : st.fee_status === "overdue" ? "destructive" : "secondary"} className="text-xs">{st.fee_status === "paid" ? "✅" : st.fee_status === "overdue" ? "🔴" : st.fee_status === "awaiting_first" ? "✨" : "⚠️"} {st.fee_status}</Badge></td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { icon: <Trophy className="h-5 w-5 text-primary" />, value: stats.sports, label: "Sports" },
-          { icon: <Users className="h-5 w-5 text-primary" />, value: stats.students, label: "Students" },
-          { icon: <IndianRupee className="h-5 w-5 text-primary" />, value: formatCurrency(stats.revenue), label: "Revenue" },
-          { icon: <AlertTriangle className="h-5 w-5 text-warning" />, value: stats.pending, label: "Pending" },
-        ].map((s, i) => (
-          <Card key={i}><CardContent className="p-4 flex items-center gap-3"><div className="p-2 rounded-lg bg-primary/10">{s.icon}</div><div><p className="text-xl font-bold">{s.value}</p><p className="text-xs text-muted-foreground">{s.label}</p></div></CardContent></Card>
-        ))}
-      </div>
+      {/* Edit Community Modal */}
+      <Dialog open={editCommunityOpen} onOpenChange={setEditCommunityOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
+          <DialogHeader><DialogTitle>Edit Community — {community.name}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Community Name *</Label><Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} /></div>
+            <div><Label>Short Code *</Label><Input value={editForm.short_code} onChange={(e) => setEditForm((p) => ({ ...p, short_code: e.target.value.toUpperCase().slice(0, 10) }))} /></div>
+            <div><Label>Address *</Label><Input value={editForm.address} onChange={(e) => setEditForm((p) => ({ ...p, address: e.target.value }))} /></div>
+            <div><Label>Contact Person</Label><Input value={editForm.contact_person} onChange={(e) => setEditForm((p) => ({ ...p, contact_person: e.target.value }))} /></div>
+            <div><Label>Contact Phone</Label><Input value={editForm.contact_phone} onChange={(e) => setEditForm((p) => ({ ...p, contact_phone: e.target.value }))} /></div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search students..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
-        </div>
-        <Select value={feeFilter} onValueChange={setFeeFilter}>
-          <SelectTrigger className="w-[120px]"><SelectValue placeholder="Fee" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="paid">Paid</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent>
-        </Select>
-        <Button onClick={() => openAddStudent()} className="gap-1"><Plus className="h-4 w-4" /> Add Student</Button>
-        <Button variant="outline" onClick={() => {
-          setSportForm({ sportName: "", sportIcon: "", coach_name: "", coach_phone: "", standard_1month: "3000", standard_3months: "8500", standard_6months: "16000", premium_1month: "4500", premium_3months: "12500", premium_6months: "24000" });
-          setAddSportOpen(true);
-        }} className="gap-1"><Plus className="h-4 w-4" /> Add Sport</Button>
-      </div>
-
-      {/* Sports with Time Slots */}
-      {commSports.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <Trophy className="h-10 w-10 mx-auto mb-3" />
-          <p className="font-medium">No sports added yet</p>
-          <p className="text-sm mt-1">Add a sport to start creating batches and enrolling students</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {commSports.map((sport) => {
-            const sportStudents = getFilteredStudents(sport.id);
-            const expanded = expandedSports.has(sport.id);
-            const paid = sportStudents.filter((s) => s.fee_status === "paid").length;
-            const pending = sportStudents.length - paid;
-            const revenue = sportStudents.filter((s) => s.fee_status === "paid").reduce((sum, s) => sum + Number(s.fee_amount), 0);
-            const sportSlots = commTimeSlots.filter((ts) => ts.sport_id === sport.id);
-            const pricing = commPricing.find((sp) => sp.sport_id === sport.id);
-
-            return (
-              <Card key={sport.id} className="overflow-hidden">
-                <div className="p-4 cursor-pointer hover:bg-muted/30 transition-colors flex items-start justify-between" onClick={() => toggleSport(sport.id)}>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-lg">{sport.icon}</span>
-                      <h3 className="font-bold text-lg">{sport.name}</h3>
-                      {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                    </div>
-                    <p className="text-sm text-muted-foreground">Coach: {sport.coach_name} • {sport.coach_phone}</p>
-                    {pricing && !expanded && (
-                      <p className="text-sm text-muted-foreground mt-1">Standard: {formatCurrencyFull(Number(pricing.standard_1month))}/mo | Premium: {formatCurrencyFull(Number(pricing.premium_1month))}/mo</p>
-                    )}
-                  </div>
-                  <div className="text-right text-sm">
-                    <p className="font-semibold">👥 {sportStudents.length} • 💰 {formatCurrency(revenue)}</p>
-                    <p className="text-muted-foreground">{paid} paid, {pending} pending</p>
-                  </div>
-                </div>
-
-                {expanded && (
-                  <div className="border-t border-border">
-                    {pricing && (
-                      <div className="px-4 pt-3 pb-2 text-sm text-muted-foreground">
-                        <p>Standard: {formatCurrencyFull(Number(pricing.standard_1month))}/1M | {formatCurrencyFull(Number(pricing.standard_3months))}/3M | {formatCurrencyFull(Number(pricing.standard_6months))}/6M</p>
-                        <p>Premium: {formatCurrencyFull(Number(pricing.premium_1month))}/1M | {formatCurrencyFull(Number(pricing.premium_3months))}/3M | {formatCurrencyFull(Number(pricing.premium_6months))}/6M</p>
-                      </div>
-                    )}
-
-                    <div className="px-4 py-2 flex items-center justify-between">
-                      <p className="text-sm font-semibold">TIME SLOTS & BATCHES</p>
-                      <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={(e) => { e.stopPropagation(); setSlotSportId(sport.id); setSlotForm({ start_time: "16:00", end_time: "17:00", age_group: "kids", batch_type: "standard", max_students: "30", active_days: ["Monday", "Wednesday", "Friday"] }); setAddSlotOpen(true); }}>
-                        <Plus className="h-3 w-3" /> Create Time Slot
-                      </Button>
-                    </div>
-
-                    {sportSlots.length === 0 && <p className="px-4 pb-3 text-sm text-muted-foreground italic">No batches yet. Create time slots above.</p>}
-
-                    {sportSlots.map((slot) => {
-                      const slotStudents = sportStudents.filter((s) => s.time_slot_id === slot.id);
-
-                      return (
-                        <div key={slot.id} className="border-t border-border/50 px-4 py-3">
-                          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-semibold flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {formatTime(slot.start_time)} - {formatTime(slot.end_time)}</span>
-                              <Badge variant="secondary" className="text-xs">{slot.age_group === "kids" ? "👶 Kids" : "🧑 Adults"}</Badge>
-                              <Badge variant={slot.batch_type === "premium" ? "default" : "secondary"} className="text-xs">{slot.batch_type === "premium" ? "⭐ Premium" : "Standard"}</Badge>
-                              {slot.active_days && <span className="text-xs text-muted-foreground">{(slot.active_days as string[]).join(", ")}</span>}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">{slot.current_students}/{slot.max_students} students</span>
-                              <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => openAddStudent(sport.id)}><Plus className="h-3 w-3" /> Add Student</Button>
-                            </div>
-                          </div>
-
-                          {slotStudents.length > 0 && (
-                            <div className="rounded-lg border border-border overflow-auto max-h-[250px] scrollbar-hide">
-                              <table className="w-full text-sm">
-                                <thead className="bg-muted/50 sticky top-0">
-                                  <tr className="text-left text-xs text-muted-foreground">
-                                    <th className="p-2">ID</th><th className="p-2">Name</th>
-                                    <th className="p-2 hidden sm:table-cell">Parent</th>
-                                    <th className="p-2">Fee</th><th className="p-2">Status</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {slotStudents.map((st) => (
-                                    <tr key={st.id} onClick={() => navigate(`/students/${st.id}`)} className="border-t border-border/30 cursor-pointer hover:bg-muted/30 transition-colors">
-                                      <td className="p-2 font-mono text-xs text-muted-foreground">{st.student_id}</td>
-                                      <td className="p-2 font-medium">{st.name}</td>
-                                      <td className="p-2 hidden sm:table-cell text-muted-foreground">{st.parent_name}</td>
-                                      <td className="p-2 text-xs">{formatCurrencyFull(Number(st.fee_amount))}</td>
-                                      <td className="p-2"><Badge variant={st.fee_status === "paid" ? "default" : st.fee_status === "overdue" ? "destructive" : "secondary"} className="text-xs">{st.fee_status === "paid" ? "✅" : st.fee_status === "overdue" ? "🔴" : st.fee_status === "awaiting_first" ? "✨" : "⚠️"} {st.fee_status}</Badge></td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
+            {/* Sport Pricing */}
+            {commPricing.length > 0 && (
+              <div className="border-t border-border pt-4 space-y-4">
+                <h3 className="font-bold">Sports Pricing</h3>
+                {commPricing.map((pricing) => {
+                  const sport = commSports.find((s) => s.id === pricing.sport_id);
+                  const form = editPricingForms[pricing.id];
+                  if (!form) return null;
+                  return (
+                    <div key={pricing.id} className="p-4 rounded-lg bg-muted/30 border border-border space-y-3">
+                      <h4 className="font-semibold">{sport?.icon} {sport?.name}</h4>
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Standard Batch</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div><Label className="text-xs">1M</Label><Input type="number" value={form.standard_1month} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], standard_1month: e.target.value } }))} /></div>
+                          <div><Label className="text-xs">3M</Label><Input type="number" value={form.standard_3months} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], standard_3months: e.target.value } }))} /></div>
+                          <div><Label className="text-xs">6M</Label><Input type="number" value={form.standard_6months} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], standard_6months: e.target.value } }))} /></div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Premium Batch</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div><Label className="text-xs">1M</Label><Input type="number" value={form.premium_1month} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], premium_1month: e.target.value } }))} /></div>
+                          <div><Label className="text-xs">3M</Label><Input type="number" value={form.premium_3months} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], premium_3months: e.target.value } }))} /></div>
+                          <div><Label className="text-xs">6M</Label><Input type="number" value={form.premium_6months} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], premium_6months: e.target.value } }))} /></div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditCommunityOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateCommunity} disabled={updateCommunity.isPending}>
+              {updateCommunity.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Updating...</> : "Update Community"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Student Modal */}
       <Dialog open={addStudentOpen} onOpenChange={setAddStudentOpen}>

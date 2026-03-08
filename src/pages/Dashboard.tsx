@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { IndianRupee, Users, Building2, AlertTriangle, Plus, ArrowRight, TrendingUp, TrendingDown, Phone, MessageSquare, Trophy } from "lucide-react";
+import { IndianRupee, Users, Building2, AlertTriangle, Plus, ArrowRight, TrendingUp, TrendingDown, Phone, MessageSquare, Trophy, UserPlus } from "lucide-react";
 import { useCommunities, useStudents, usePayments, useSports, formatCurrencyFull, formatCurrency } from "@/hooks/useSupabaseData";
 
 export default function Dashboard() {
@@ -21,7 +21,7 @@ export default function Dashboard() {
     const lastMonthRevenue = Math.round(totalRevenue * 0.86);
     const revDiff = totalRevenue - lastMonthRevenue;
     const revPct = lastMonthRevenue > 0 ? ((revDiff / lastMonthRevenue) * 100).toFixed(1) : "0";
-    const pendingStudents = students.filter((s) => s.fee_status === "pending" || s.fee_status === "overdue" || s.fee_status === "awaiting_first");
+    const pendingStudents = students.filter((s) => s.fee_status === "pending" || s.fee_status === "overdue" || s.fee_status === "awaiting_first" || s.fee_status === "unpaid");
     const pendingAmount = pendingStudents.reduce((s, st) => s + Number(st.fee_amount), 0);
     return {
       totalRevenue, lastMonthRevenue, revDiff, revPct,
@@ -33,6 +33,20 @@ export default function Dashboard() {
       pendingStudents: pendingStudents.slice(0, 8),
     };
   }, [communities, students, payments]);
+
+  // Student growth: new enrollments this month vs last month
+  const studentGrowth = useMemo(() => {
+    const now = new Date();
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10);
+
+    const thisMonth = students.filter((s) => s.joining_date >= startOfThisMonth).length;
+    const lastMonth = students.filter((s) => s.joining_date >= startOfLastMonth && s.joining_date <= endOfLastMonth).length;
+    const diff = thisMonth - lastMonth;
+    const pct = lastMonth > 0 ? ((diff / lastMonth) * 100).toFixed(1) : "0";
+    return { thisMonth, lastMonth, diff, pct, up: diff >= 0 };
+  }, [students]);
 
   const revenueByComm = useMemo(() => {
     return communities.map((c) => {
@@ -69,8 +83,8 @@ export default function Dashboard() {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Skeleton className="h-64 rounded-xl" />
@@ -84,8 +98,8 @@ export default function Dashboard() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Dashboard</h1>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats - 5 cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-5">
             <div className="text-primary mb-3"><IndianRupee className="h-6 w-6" /></div>
@@ -104,6 +118,20 @@ export default function Dashboard() {
             <div className="text-foreground mb-3"><Users className="h-6 w-6" /></div>
             <p className="text-3xl font-bold">{stats.totalStudents}</p>
             <p className="text-sm text-muted-foreground mt-1">Total Students</p>
+          </CardContent>
+        </Card>
+        {/* NEW: Student Growth */}
+        <Card>
+          <CardContent className="p-5">
+            <div className="text-success mb-3"><UserPlus className="h-6 w-6" /></div>
+            <p className="text-3xl font-bold">{studentGrowth.thisMonth}</p>
+            <p className="text-sm text-muted-foreground mt-1">New Students</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Enrolled This Month</p>
+            <div className={`flex items-center gap-1 mt-2 text-xs ${studentGrowth.up ? "text-success" : "text-destructive"}`}>
+              {studentGrowth.up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              <span>{studentGrowth.up ? "↑" : "↓"} {Math.abs(studentGrowth.diff)} ({studentGrowth.pct}%)</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Last month: {studentGrowth.lastMonth}</p>
           </CardContent>
         </Card>
         <Card>
