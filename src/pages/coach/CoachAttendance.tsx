@@ -197,8 +197,10 @@ export default function CoachAttendance() {
     };
   }, [attendance]);
 
+  // Coaches have full edit access - past dates with existing records show edit button
+  const isPastDate = selectedDate < today;
   const canEdit = isPastDate && existingRecords && !isEditMode;
-  const isReadOnly = isPastDate && !isEditMode;
+  const isReadOnly = false; // Coaches always have write access
 
   if (loading) {
     return (
