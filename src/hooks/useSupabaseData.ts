@@ -416,6 +416,59 @@ export function useGlobalSports() {
   });
 }
 
+// ─── Coaches ────────────────────────────────────────────────────────
+
+export function useCoaches(sportName?: string) {
+  return useQuery({
+    queryKey: ["coaches", sportName],
+    queryFn: async () => {
+      let q = supabase.from("coaches").select("*").eq("is_active", true).order("name");
+      if (sportName) q = q.eq("sport_name", sportName);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useCoachAssignments(coachId?: string) {
+  return useQuery({
+    queryKey: ["coachAssignments", coachId],
+    enabled: !!coachId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("coach_assignments")
+        .select("*")
+        .eq("coach_id", coachId!);
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useCreateCoachAssignment() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (input: { coach_id: string; community_id: string; sport_id: string }) => {
+      const { data, error } = await supabase
+        .from("coach_assignments")
+        .insert(input)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["coachAssignments"] });
+      toast({ title: "Coach assigned!" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to assign coach", description: err.message, variant: "destructive" });
+    },
+  });
+}
+
 // ─── Batch Promotion ────────────────────────────────────────────────
 
 export function usePromoteStudent() {
