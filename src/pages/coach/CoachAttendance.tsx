@@ -285,10 +285,16 @@ export default function CoachAttendance() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {isPastDate && (
-                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${isEditMode ? "bg-warning/10 border border-warning/30 text-warning" : "bg-muted/50 text-muted-foreground"}`}>
+              {isPastDate && existingRecords && !isEditMode && (
+                <div className="p-3 rounded-lg text-sm flex items-center gap-2 bg-muted/50 text-muted-foreground">
                   <AlertCircle className="h-4 w-4 shrink-0" />
-                  {isEditMode ? "Edit mode — modify and save" : "Read-only. Click Edit to modify."}
+                  Previously recorded. Click Edit to modify.
+                </div>
+              )}
+              {isEditMode && (
+                <div className="p-3 rounded-lg text-sm flex items-center gap-2 bg-warning/10 border border-warning/30 text-warning">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  Edit mode — modify and save
                 </div>
               )}
 
