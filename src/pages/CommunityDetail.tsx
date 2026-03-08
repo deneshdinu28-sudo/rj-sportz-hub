@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Phone, MessageSquare, Plus, ChevronDown, ChevronUp, Search, Edit2, Users, Trophy, IndianRupee, AlertTriangle, Clock, Loader2, MapPin, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AttendanceTab from "@/components/AttendanceTab";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -316,6 +318,13 @@ export default function CommunityDetail() {
 
         {/* RIGHT CONTENT */}
         <div className="space-y-4">
+          <Tabs defaultValue="sports">
+            <TabsList>
+              <TabsTrigger value="sports">Sports & Students</TabsTrigger>
+              <TabsTrigger value="attendance">Attendance</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="sports" className="mt-4 space-y-4">
           {/* Filters */}
           <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-[200px]">
@@ -440,6 +449,12 @@ export default function CommunityDetail() {
               })}
             </div>
           )}
+            </TabsContent>
+
+            <TabsContent value="attendance" className="mt-4">
+              <AttendanceTab communityId={id!} />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 

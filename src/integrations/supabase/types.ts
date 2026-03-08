@@ -187,6 +187,48 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_students: {
+        Row: {
+          allocated_amount: number
+          created_at: string | null
+          id: string
+          payment_id: string
+          plan_chosen: string
+          student_id: string
+        }
+        Insert: {
+          allocated_amount: number
+          created_at?: string | null
+          id?: string
+          payment_id: string
+          plan_chosen: string
+          student_id: string
+        }
+        Update: {
+          allocated_amount?: number
+          created_at?: string | null
+          id?: string
+          payment_id?: string
+          plan_chosen?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_students_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -200,7 +242,9 @@ export type Database = {
           receipt_number: string | null
           screenshot_url: string | null
           student_code: string | null
+          student_codes: string | null
           student_id: string
+          student_names: string | null
           transaction_id: string | null
           verification_method: string
           verified_at: string | null
@@ -217,7 +261,9 @@ export type Database = {
           receipt_number?: string | null
           screenshot_url?: string | null
           student_code?: string | null
+          student_codes?: string | null
           student_id: string
+          student_names?: string | null
           transaction_id?: string | null
           verification_method?: string
           verified_at?: string | null
@@ -234,7 +280,9 @@ export type Database = {
           receipt_number?: string | null
           screenshot_url?: string | null
           student_code?: string | null
+          student_codes?: string | null
           student_id?: string
+          student_names?: string | null
           transaction_id?: string | null
           verification_method?: string
           verified_at?: string | null
@@ -380,6 +428,7 @@ export type Database = {
           community_id: string
           created_at: string
           created_by: string | null
+          days_overdue: number | null
           fee_amount: number
           fee_status: string
           hold_reason: string | null
@@ -408,6 +457,7 @@ export type Database = {
           community_id: string
           created_at?: string
           created_by?: string | null
+          days_overdue?: number | null
           fee_amount?: number
           fee_status?: string
           hold_reason?: string | null
@@ -436,6 +486,7 @@ export type Database = {
           community_id?: string
           created_at?: string
           created_by?: string | null
+          days_overdue?: number | null
           fee_amount?: number
           fee_status?: string
           hold_reason?: string | null
@@ -545,7 +596,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_fee_statuses: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
