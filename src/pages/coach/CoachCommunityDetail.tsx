@@ -126,13 +126,14 @@ export default function CoachCommunityDetail() {
   const selectedSport = sports.find(s => s.id === form.sport_id);
   const studentPricing = form.sport_id ? pricing.find(p => p.sport_id === form.sport_id) : null;
 
-  const getFeeAmount = () => {
+  const getFeeForPlan = (plan: string) => {
     if (!studentPricing || !selectedSlot) return 0;
     const bt = selectedSlot.batch_type;
-    const plan = form.payment_plan;
     const key = `${bt}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
     return Number((studentPricing as any)[key]) || 0;
   };
+
+  const getFeeAmount = () => getFeeForPlan(form.payment_plan);
 
   const getStudentId = () => {
     const count = students.length + 1;
