@@ -290,7 +290,6 @@ export default function CoachCommunityDetail() {
                           Parent: {st.parent_name}
                         </p>
                       </div>
-                      <p className="text-sm font-semibold text-primary">{formatCurrencyFull(st.fee_amount)}</p>
                     </div>
                   </CardContent>
                 </Card>
