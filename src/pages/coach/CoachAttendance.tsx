@@ -135,7 +135,6 @@ export default function CoachAttendance() {
   };
 
   const handleMarkAll = (status: AttendanceStatus) => {
-    if (isPastDate && !isEditMode) return;
     const updated: Record<string, AttendanceStatus> = {};
     slotStudents.forEach((s) => { updated[s.id] = status; });
     setAttendance(updated);
