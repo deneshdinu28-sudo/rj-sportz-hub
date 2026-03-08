@@ -55,10 +55,12 @@ export default function CommunityDetail() {
   });
 
   const [sportForm, setSportForm] = useState({
-    sportName: "", sportIcon: "", coach_name: "", coach_phone: "",
+    sportName: "", sportIcon: "", coach_id: "", coach_name: "", coach_phone: "",
     standard_1month: "3000", standard_3months: "8500", standard_6months: "16000",
     premium_1month: "4500", premium_3months: "12500", premium_6months: "24000",
   });
+
+  const [availableCoaches, setAvailableCoaches] = useState<Array<{ id: string; coach_id: string; name: string; phone: string | null; sport_name: string }>>([]);
 
   const [slotForm, setSlotForm] = useState({
     start_time: "16:00", end_time: "17:00", age_group: "kids", batch_type: "standard",
