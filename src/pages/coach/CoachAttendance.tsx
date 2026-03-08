@@ -328,15 +328,11 @@ export default function CoachAttendance() {
                         >
                           <div className="flex items-center gap-1">
                             <RadioGroupItem value="present" id={`${st.id}-p`} disabled={isReadOnly} />
-                            <Label htmlFor={`${st.id}-p`} className={`text-xs ${isReadOnly ? "opacity-60" : "text-success"}`}>P</Label>
+                            <Label htmlFor={`${st.id}-p`} className={`text-xs ${isReadOnly ? "opacity-60" : "text-success"}`}>Present</Label>
                           </div>
                           <div className="flex items-center gap-1">
                             <RadioGroupItem value="absent" id={`${st.id}-a`} disabled={isReadOnly} />
-                            <Label htmlFor={`${st.id}-a`} className={`text-xs ${isReadOnly ? "opacity-60" : "text-destructive"}`}>A</Label>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <RadioGroupItem value="leave" id={`${st.id}-l`} disabled={isReadOnly} />
-                            <Label htmlFor={`${st.id}-l`} className={`text-xs ${isReadOnly ? "opacity-60" : "text-warning"}`}>L</Label>
+                            <Label htmlFor={`${st.id}-a`} className={`text-xs ${isReadOnly ? "opacity-60" : "text-destructive"}`}>Absent</Label>
                           </div>
                         </RadioGroup>
                       </div>
