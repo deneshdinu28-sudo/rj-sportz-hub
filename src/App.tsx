@@ -12,6 +12,7 @@ import CommunityDetail from "./pages/CommunityDetail";
 import StudentDetail from "./pages/StudentDetail";
 import Payments from "./pages/Payments";
 import Attendance from "./pages/Attendance";
+import Coaches from "./pages/Coaches";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/students/:id" element={<StudentDetail />} />
               <Route path="/payments" element={<Payments />} />
               <Route path="/attendance" element={<Attendance />} />
+              <Route path="/coaches" element={<Coaches />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
