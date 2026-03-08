@@ -169,7 +169,7 @@ export default function CommunityDetail() {
   };
 
   const handleSaveSport = async () => {
-    await createSport.mutateAsync({
+    const sport = await createSport.mutateAsync({
       name: sportForm.sportName,
       icon: sportForm.sportIcon,
       community_id: id!,
@@ -182,6 +182,16 @@ export default function CommunityDetail() {
       premium_3months: Number(sportForm.premium_3months),
       premium_6months: Number(sportForm.premium_6months),
     });
+    
+    // Create coach assignment if coach was selected
+    if (sportForm.coach_id && sport?.id) {
+      await createCoachAssignment.mutateAsync({
+        coach_id: sportForm.coach_id,
+        community_id: id!,
+        sport_id: sport.id,
+      });
+    }
+    
     setAddSportOpen(false);
   };
 
