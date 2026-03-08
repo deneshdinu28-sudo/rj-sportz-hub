@@ -58,7 +58,6 @@ export default function CoachAttendance() {
   const [saving, setSaving] = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
-  const isPastDate = selectedDate < today;
 
   useEffect(() => {
     loadAssignment();
