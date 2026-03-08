@@ -36,6 +36,7 @@ export default function CommunityDetail() {
   const createStudent = useCreateStudent();
   const updateCommunity = useUpdateCommunity();
   const updateSportPricing = useUpdateSportPricing();
+  const createCoachAssignment = useCreateCoachAssignment();
 
   const [search, setSearch] = useState("");
   const [feeFilter, setFeeFilter] = useState("all");
