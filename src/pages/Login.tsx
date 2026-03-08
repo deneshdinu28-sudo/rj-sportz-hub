@@ -6,10 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Loader2, LogIn } from "lucide-react";
+import { toast } from "sonner";
+
+const ADMIN_EMAIL = "admin@rjsportz.com";
+const ADMIN_PASSWORD = "Admin@2026";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const { signIn, signUp } = useAuth();
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -29,37 +33,40 @@ export default function Login() {
     setIsLoading(true);
     try {
       if (isAdmin) {
-        // Admin login - look up admin email from profiles, then sign in
-        const { data: adminProfile } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("user_type", "admin")
-          .limit(1)
-          .maybeSingle();
-
-        if (!adminProfile) {
-          setError("No admin account found. Please sign up first.");
+        // Admin login with hardcoded password check
+        if (password !== ADMIN_PASSWORD) {
+          setError("Invalid admin password");
           setIsLoading(false);
           return;
         }
 
-        // Get user email from auth - use the existing admin's email
-        const { data: authUser } = await supabase.auth.admin?.getUserById?.(adminProfile.id) || {};
-        
-        // Since we can't access admin API from client, we'll try signing in with known admin email
-        // The admin should have signed up with email. Try the sign in directly.
-        // We need to find the admin's email - query profiles won't have it, but we can try common admin emails
-        // Better approach: just use Supabase Auth signIn with the password
-        
-        // Fetch all profiles to find admin, then use auth
-        // Actually, for admin login with "ADMIN" ID, we need a stored email.
-        // Let's check if there's an admin email we can use
-        const { error: signInError } = await signIn("admin@rjsportz.com", password);
+        // Try to sign in first
+        const { error: signInError } = await signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+
         if (signInError) {
-          setError(signInError);
-        } else {
-          navigate("/dashboard", { replace: true });
+          // If user doesn't exist, auto-create admin account
+          console.log("Admin sign-in failed, attempting auto-signup:", signInError);
+          const { error: signUpError } = await signUp(ADMIN_EMAIL, ADMIN_PASSWORD, "Admin");
+          
+          if (signUpError) {
+            console.error("Admin signup failed:", signUpError);
+            setError("Failed to create admin account. " + signUpError);
+            setIsLoading(false);
+            return;
+          }
+
+          // Now sign in with the newly created account
+          const { error: retryError } = await signIn(ADMIN_EMAIL, ADMIN_PASSWORD);
+          if (retryError) {
+            setError("Admin account created but login failed. Try again.");
+            setIsLoading(false);
+            return;
+          }
         }
+
+        toast.success("Welcome, Admin!");
+        navigate("/dashboard", { replace: true });
+
       } else if (isCoach) {
         // Coach login - look up coach by coach_id
         const { data: coach } = await supabase
@@ -93,11 +100,11 @@ export default function Login() {
           return;
         }
 
-        // Sign in with the coach's email + password via Supabase Auth
         const { error: signInError } = await signIn(coach.signup_email, password);
         if (signInError) {
           setError("Invalid password");
         } else {
+          toast.success(`Welcome, ${coach.name}!`);
           navigate("/coach/dashboard", { replace: true });
         }
       }
@@ -126,7 +133,6 @@ export default function Login() {
           onSubmit={handleSubmit}
           className="space-y-5 bg-card p-8 rounded-xl border border-border shadow-lg shadow-primary/5"
         >
-          {/* User ID Field */}
           <div className="space-y-2">
             <Label htmlFor="userId">User ID</Label>
             <Input
@@ -140,12 +146,11 @@ export default function Login() {
               autoComplete="username"
             />
             <div className="text-xs text-muted-foreground space-y-0.5">
-              <p>📌 Admin: Use <span className="text-primary font-mono">ADMIN</span></p>
-              <p>📌 Coach: Use your Coach ID (e.g., <span className="text-primary font-mono">RJBDM005</span>)</p>
+              <p>📌 Admin: <span className="text-primary font-mono">ADMIN</span> / <span className="text-primary font-mono">Admin@2026</span></p>
+              <p>📌 Coach: Your Coach ID (e.g., <span className="text-primary font-mono">RJBDM005</span>)</p>
             </div>
           </div>
 
-          {/* Password Field */}
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <div className="relative">
