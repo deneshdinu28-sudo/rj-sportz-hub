@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Phone, MessageSquare, Plus, ChevronDown, ChevronUp, Search, Edit2, Users, Trophy, IndianRupee, AlertTriangle, Clock, Loader2, MapPin, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useCommunity, useSports, useStudents, useSportPricing, useTimeSlots, useGlobalSports,
   useCreateSport, useCreateTimeSlot, useCreateStudent, useUpdateCommunity, useUpdateSportPricing,
-  formatCurrencyFull, formatCurrency, formatTime,
+  useCreateCoachAssignment, formatCurrencyFull, formatCurrency, formatTime,
 } from "@/hooks/useSupabaseData";
 
 export default function CommunityDetail() {
