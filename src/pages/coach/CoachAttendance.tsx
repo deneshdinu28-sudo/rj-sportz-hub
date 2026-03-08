@@ -193,7 +193,6 @@ export default function CoachAttendance() {
     return {
       present: vals.filter((v) => v === "present").length,
       absent: vals.filter((v) => v === "absent").length,
-      leave: vals.filter((v) => v === "leave").length,
     };
   }, [attendance]);
 
