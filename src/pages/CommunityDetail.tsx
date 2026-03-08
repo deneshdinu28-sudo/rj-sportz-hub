@@ -318,6 +318,13 @@ export default function CommunityDetail() {
 
         {/* RIGHT CONTENT */}
         <div className="space-y-4">
+          <Tabs defaultValue="sports">
+            <TabsList>
+              <TabsTrigger value="sports">Sports & Students</TabsTrigger>
+              <TabsTrigger value="attendance">Attendance</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="sports" className="mt-4 space-y-4">
           {/* Filters */}
           <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-[200px]">
@@ -442,6 +449,12 @@ export default function CommunityDetail() {
               })}
             </div>
           )}
+            </TabsContent>
+
+            <TabsContent value="attendance" className="mt-4">
+              <AttendanceTab communityId={id!} />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 
