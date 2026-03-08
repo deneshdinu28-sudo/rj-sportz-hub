@@ -344,9 +344,8 @@ export default function CoachAttendance() {
               {/* Summary */}
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
                 <div className="flex gap-3 text-xs font-medium">
-                  <span className="text-success">P: {summary.present}</span>
-                  <span className="text-destructive">A: {summary.absent}</span>
-                  <span className="text-warning">L: {summary.leave}</span>
+                  <span className="text-success">Present: {summary.present}</span>
+                  <span className="text-destructive">Absent: {summary.absent}</span>
                 </div>
                 {!existingRecords && (
                   <Button onClick={handleSubmit} disabled={saving || slotStudents.length === 0} size="sm" className="gap-1">

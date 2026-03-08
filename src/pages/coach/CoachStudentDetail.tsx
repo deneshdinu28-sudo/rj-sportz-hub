@@ -98,9 +98,11 @@ export default function CoachStudentDetail() {
             <div className="flex justify-between"><span className="text-muted-foreground">Community</span><span>{community?.name}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Sport</span><span>{sport?.icon} {sport?.name}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Batch</span><span>{student.batch_time} • {student.batch_type}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Fee</span><span className="font-semibold text-primary">{formatCurrencyFull(Number(student.fee_amount))}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span>{student.payment_plan === "1m" ? "1 Month" : student.payment_plan === "3m" ? "3 Months" : "6 Months"}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Joining Date</span><span>{student.joining_date}</span></div>
+            {student.payment_start_date && (
+              <div className="flex justify-between"><span className="text-muted-foreground">Plan Start</span><span>{student.payment_start_date}</span></div>
+            )}
             {student.next_due_date && (
               <div className="flex justify-between"><span className="text-muted-foreground">Next Due</span><span className="text-warning">{student.next_due_date}</span></div>
             )}

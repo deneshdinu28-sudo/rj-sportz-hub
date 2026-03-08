@@ -350,10 +350,11 @@ export default function CoachCommunityDetail() {
               <RadioGroup value={form.payment_plan} onValueChange={v => setForm(p => ({ ...p, payment_plan: v }))} className="space-y-2 mt-1">
                 {(["1m", "3m", "6m"] as const).map(plan => {
                   const label = plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months";
+                  const planFee = getFeeForPlan(plan);
                   return (
                     <div key={plan} className="flex items-center gap-2">
                       <RadioGroupItem value={plan} id={`pp-${plan}`} />
-                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(getFeeAmount())}</Label>
+                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(planFee)}</Label>
                     </div>
                   );
                 })}
