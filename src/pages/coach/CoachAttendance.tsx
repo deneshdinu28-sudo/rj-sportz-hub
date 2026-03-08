@@ -13,7 +13,7 @@ import { ArrowLeft, CheckCircle, Loader2, Calendar, Edit2, AlertCircle } from "l
 import { useToast } from "@/hooks/use-toast";
 import { formatTime } from "@/hooks/useSupabaseData";
 
-type AttendanceStatus = "present" | "absent" | "leave";
+type AttendanceStatus = "present" | "absent";
 
 interface StudentRow {
   id: string;
@@ -193,7 +193,6 @@ export default function CoachAttendance() {
     return {
       present: vals.filter((v) => v === "present").length,
       absent: vals.filter((v) => v === "absent").length,
-      leave: vals.filter((v) => v === "leave").length,
     };
   }, [attendance]);
 
@@ -329,15 +328,11 @@ export default function CoachAttendance() {
                         >
                           <div className="flex items-center gap-1">
                             <RadioGroupItem value="present" id={`${st.id}-p`} disabled={isReadOnly} />
-                            <Label htmlFor={`${st.id}-p`} className={`text-xs ${isReadOnly ? "opacity-60" : "text-success"}`}>P</Label>
+                            <Label htmlFor={`${st.id}-p`} className={`text-xs ${isReadOnly ? "opacity-60" : "text-success"}`}>Present</Label>
                           </div>
                           <div className="flex items-center gap-1">
                             <RadioGroupItem value="absent" id={`${st.id}-a`} disabled={isReadOnly} />
-                            <Label htmlFor={`${st.id}-a`} className={`text-xs ${isReadOnly ? "opacity-60" : "text-destructive"}`}>A</Label>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <RadioGroupItem value="leave" id={`${st.id}-l`} disabled={isReadOnly} />
-                            <Label htmlFor={`${st.id}-l`} className={`text-xs ${isReadOnly ? "opacity-60" : "text-warning"}`}>L</Label>
+                            <Label htmlFor={`${st.id}-a`} className={`text-xs ${isReadOnly ? "opacity-60" : "text-destructive"}`}>Absent</Label>
                           </div>
                         </RadioGroup>
                       </div>
@@ -349,9 +344,8 @@ export default function CoachAttendance() {
               {/* Summary */}
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
                 <div className="flex gap-3 text-xs font-medium">
-                  <span className="text-success">P: {summary.present}</span>
-                  <span className="text-destructive">A: {summary.absent}</span>
-                  <span className="text-warning">L: {summary.leave}</span>
+                  <span className="text-success">Present: {summary.present}</span>
+                  <span className="text-destructive">Absent: {summary.absent}</span>
                 </div>
                 {!existingRecords && (
                   <Button onClick={handleSubmit} disabled={saving || slotStudents.length === 0} size="sm" className="gap-1">

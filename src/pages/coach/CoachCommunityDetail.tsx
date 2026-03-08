@@ -126,13 +126,14 @@ export default function CoachCommunityDetail() {
   const selectedSport = sports.find(s => s.id === form.sport_id);
   const studentPricing = form.sport_id ? pricing.find(p => p.sport_id === form.sport_id) : null;
 
-  const getFeeAmount = () => {
+  const getFeeForPlan = (plan: string) => {
     if (!studentPricing || !selectedSlot) return 0;
     const bt = selectedSlot.batch_type;
-    const plan = form.payment_plan;
     const key = `${bt}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
     return Number((studentPricing as any)[key]) || 0;
   };
+
+  const getFeeAmount = () => getFeeForPlan(form.payment_plan);
 
   const getStudentId = () => {
     const count = students.length + 1;
@@ -289,7 +290,6 @@ export default function CoachCommunityDetail() {
                           Parent: {st.parent_name}
                         </p>
                       </div>
-                      <p className="text-sm font-semibold text-primary">{formatCurrencyFull(st.fee_amount)}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -349,10 +349,11 @@ export default function CoachCommunityDetail() {
               <RadioGroup value={form.payment_plan} onValueChange={v => setForm(p => ({ ...p, payment_plan: v }))} className="space-y-2 mt-1">
                 {(["1m", "3m", "6m"] as const).map(plan => {
                   const label = plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months";
+                  const planFee = getFeeForPlan(plan);
                   return (
                     <div key={plan} className="flex items-center gap-2">
                       <RadioGroupItem value={plan} id={`pp-${plan}`} />
-                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(getFeeAmount())}</Label>
+                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(planFee)}</Label>
                     </div>
                   );
                 })}
