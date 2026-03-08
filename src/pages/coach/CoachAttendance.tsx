@@ -58,7 +58,6 @@ export default function CoachAttendance() {
   const [saving, setSaving] = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
-  const isPastDate = selectedDate < today;
 
   useEffect(() => {
     loadAssignment();
@@ -136,7 +135,6 @@ export default function CoachAttendance() {
   };
 
   const handleMarkAll = (status: AttendanceStatus) => {
-    if (isPastDate && !isEditMode) return;
     const updated: Record<string, AttendanceStatus> = {};
     slotStudents.forEach((s) => { updated[s.id] = status; });
     setAttendance(updated);
@@ -199,8 +197,10 @@ export default function CoachAttendance() {
     };
   }, [attendance]);
 
+  // Coaches have full edit access - past dates with existing records show edit button
+  const isPastDate = selectedDate < today;
   const canEdit = isPastDate && existingRecords && !isEditMode;
-  const isReadOnly = isPastDate && !isEditMode;
+  const isReadOnly = false; // Coaches always have write access
 
   if (loading) {
     return (
@@ -285,14 +285,20 @@ export default function CoachAttendance() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {isPastDate && (
-                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${isEditMode ? "bg-warning/10 border border-warning/30 text-warning" : "bg-muted/50 text-muted-foreground"}`}>
+              {isPastDate && existingRecords && !isEditMode && (
+                <div className="p-3 rounded-lg text-sm flex items-center gap-2 bg-muted/50 text-muted-foreground">
                   <AlertCircle className="h-4 w-4 shrink-0" />
-                  {isEditMode ? "Edit mode — modify and save" : "Read-only. Click Edit to modify."}
+                  Previously recorded. Click Edit to modify.
+                </div>
+              )}
+              {isEditMode && (
+                <div className="p-3 rounded-lg text-sm flex items-center gap-2 bg-warning/10 border border-warning/30 text-warning">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  Edit mode — modify and save
                 </div>
               )}
 
-              {!isReadOnly && (
+              {!(isPastDate && existingRecords && !isEditMode) && (
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => handleMarkAll("present")} className="text-xs">All Present</Button>
                   <Button variant="outline" size="sm" onClick={() => handleMarkAll("absent")} className="text-xs">All Absent</Button>
@@ -347,7 +353,7 @@ export default function CoachAttendance() {
                   <span className="text-destructive">A: {summary.absent}</span>
                   <span className="text-warning">L: {summary.leave}</span>
                 </div>
-                {!isPastDate && !existingRecords && (
+                {!existingRecords && (
                   <Button onClick={handleSubmit} disabled={saving || slotStudents.length === 0} size="sm" className="gap-1">
                     {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
                     Submit

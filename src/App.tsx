@@ -17,6 +17,8 @@ import Attendance from "./pages/Attendance";
 import Coaches from "./pages/Coaches";
 import Settings from "./pages/Settings";
 import CoachDashboard from "./pages/coach/CoachDashboard";
+import CoachCommunityDetail from "./pages/coach/CoachCommunityDetail";
+import CoachStudentDetail from "./pages/coach/CoachStudentDetail";
 import CoachStudents from "./pages/coach/CoachStudents";
 import CoachAttendance from "./pages/coach/CoachAttendance";
 import NotFound from "./pages/NotFound";
@@ -53,6 +55,8 @@ const App = () => (
             {/* Coach Routes (protected by CoachGuard) */}
             <Route element={<CoachGuard />}>
               <Route path="/coach/dashboard" element={<CoachDashboard />} />
+              <Route path="/coach/community/:communityId" element={<CoachCommunityDetail />} />
+              <Route path="/coach/student/:studentId" element={<CoachStudentDetail />} />
               <Route path="/coach/students/:assignmentId" element={<CoachStudents />} />
               <Route path="/coach/attendance/:assignmentId" element={<CoachAttendance />} />
             </Route>
