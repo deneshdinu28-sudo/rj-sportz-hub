@@ -12,7 +12,7 @@ import { useCommunities, useSports, useStudents, useTimeSlots, useCreateAttendan
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-type AttendanceStatus = "present" | "absent" | "leave";
+type AttendanceStatus = "present" | "absent";
 
 export default function Attendance() {
   const { data: communities = [], isLoading } = useCommunities();
