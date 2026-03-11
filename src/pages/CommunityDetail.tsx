@@ -749,7 +749,7 @@ export default function CommunityDetail() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddSportOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveSport} disabled={createSport.isPending || !sportForm.sportName || !sportForm.coach_id}>
+            <Button onClick={handleSaveSport} disabled={createSport.isPending || !sportForm.sportName}>
               {createSport.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Adding...</> : "Add Sport →"}
             </Button>
           </DialogFooter>
