@@ -615,10 +615,14 @@ export default function CommunityDetail() {
             <div>
               <Label>Select Sport *</Label>
               <Select value={sportForm.sportName} onValueChange={async (v) => {
+                if (v === "__custom__") {
+                  setSportForm((p) => ({ ...p, sportName: "", sportIcon: "🏃", coach_id: "", coach_name: "", coach_phone: "" }));
+                  setAvailableCoaches([]);
+                  return;
+                }
                 const gs = globalSports.find((g) => g.name === v);
                 if (gs) {
                   setSportForm((p) => ({ ...p, sportName: gs.name, sportIcon: gs.icon || "🏃", coach_id: "", coach_name: "", coach_phone: "" }));
-                  // Load coaches for this sport
                   const { data: coaches } = await supabase
                     .from("coaches")
                     .select("id, coach_id, name, phone, sport_name")
@@ -633,9 +637,47 @@ export default function CommunityDetail() {
                   {globalSports.filter((gs) => !commSports.some((cs) => cs.name === gs.name)).map((gs) => (
                     <SelectItem key={gs.id} value={gs.name}>{gs.icon} {gs.name}</SelectItem>
                   ))}
+                  <SelectItem value="__custom__">➕ Add Custom Sport</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Custom Sport Fields */}
+            {sportForm.sportName === "" && sportForm.sportIcon === "🏃" && (
+              <div className="space-y-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
+                <p className="text-sm font-semibold text-primary">Create New Sport</p>
+                <div>
+                  <Label className="text-xs">Sport Name *</Label>
+                  <Input
+                    value={sportForm.sportName}
+                    onChange={async (e) => {
+                      const name = e.target.value;
+                      setSportForm((p) => ({ ...p, sportName: name }));
+                      if (name.length > 2) {
+                        const { data: coaches } = await supabase
+                          .from("coaches")
+                          .select("id, coach_id, name, phone, sport_name")
+                          .eq("sport_name", name)
+                          .eq("is_active", true)
+                          .order("name");
+                        setAvailableCoaches(coaches || []);
+                      }
+                    }}
+                    placeholder="e.g., Boxing, Gymnastics"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Sport Icon (Emoji) *</Label>
+                  <Input
+                    value={sportForm.sportIcon}
+                    onChange={(e) => setSportForm((p) => ({ ...p, sportIcon: e.target.value }))}
+                    placeholder="🥊"
+                    maxLength={2}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">💡 This sport will be added to the global list and available for all communities.</p>
+              </div>
+            )}
             
             {/* Coach Dropdown */}
             {sportForm.sportName && (
