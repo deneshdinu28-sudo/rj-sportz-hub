@@ -299,7 +299,6 @@ export default function Attendance() {
               <div className="flex gap-4 text-sm">
                 <span className="text-success font-medium">Present: {summary.present}</span>
                 <span className="text-destructive font-medium">Absent: {summary.absent}</span>
-                <span className="text-warning font-medium">Leave: {summary.leave}</span>
               </div>
               {!isPastDate && !existingRecords && (
                 <Button onClick={handleSubmit} disabled={createAttendance.isPending || slotStudents.length === 0} className="gap-2">

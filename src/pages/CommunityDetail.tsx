@@ -585,10 +585,16 @@ export default function CommunityDetail() {
               <RadioGroup value={studentForm.payment_plan} onValueChange={(v) => setStudentForm((p) => ({ ...p, payment_plan: v }))} className="space-y-2 mt-1">
                 {(["1m", "3m", "6m"] as const).map((plan) => {
                   const label = plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months";
+                  const getPlanFee = () => {
+                    if (!studentPricing || !selectedSlot) return 0;
+                    const bt = selectedSlot.batch_type;
+                    const key = `${bt}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
+                    return Number((studentPricing as any)[key]) || 0;
+                  };
                   return (
                     <div key={plan} className="flex items-center gap-2">
                       <RadioGroupItem value={plan} id={`pp-${plan}`} />
-                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(getFeeAmount())}</Label>
+                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(getPlanFee())}</Label>
                     </div>
                   );
                 })}
