@@ -169,6 +169,23 @@ export default function CommunityDetail() {
   };
 
   const handleSaveSport = async () => {
+    // If custom sport, check if it exists in global_sports and add if not
+    const existingGlobal = globalSports.find((g) => g.name === sportForm.sportName);
+    if (!existingGlobal && sportForm.sportName) {
+      // Add to global_sports
+      await supabase.from("global_sports").insert({
+        name: sportForm.sportName,
+        icon: sportForm.sportIcon || "🏃",
+        is_default: false,
+      });
+      // Add shortcode
+      const shortcode = sportForm.sportName.substring(0, 3).toUpperCase();
+      await supabase.from("sport_shortcodes").upsert({
+        sport_name: sportForm.sportName,
+        shortcode,
+      }, { onConflict: "sport_name" });
+    }
+
     const sport = await createSport.mutateAsync({
       name: sportForm.sportName,
       icon: sportForm.sportIcon,
