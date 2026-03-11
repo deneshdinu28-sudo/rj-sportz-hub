@@ -12,7 +12,7 @@ import { useCommunities, useSports, useStudents, useTimeSlots, useCreateAttendan
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-type AttendanceStatus = "present" | "absent" | "leave";
+type AttendanceStatus = "present" | "absent";
 
 export default function Attendance() {
   const { data: communities = [], isLoading } = useCommunities();
@@ -145,7 +145,7 @@ export default function Attendance() {
   const selectedSportData = allSports.find((s) => s.id === selectedSport);
   const summary = useMemo(() => {
     const vals = Object.values(attendance);
-    return { present: vals.filter((v) => v === "present").length, absent: vals.filter((v) => v === "absent").length, leave: vals.filter((v) => v === "leave").length };
+    return { present: vals.filter((v) => v === "present").length, absent: vals.filter((v) => v === "absent").length };
   }, [attendance]);
 
   const canEdit = isPastDate && existingRecords && !isEditMode;
@@ -288,10 +288,6 @@ export default function Attendance() {
                           <RadioGroupItem value="absent" id={`${st.id}-a`} disabled={isReadOnly} />
                           <Label htmlFor={`${st.id}-a`} className={`text-sm cursor-pointer ${isReadOnly ? "opacity-60" : "text-destructive"}`}>Absent</Label>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <RadioGroupItem value="leave" id={`${st.id}-l`} disabled={isReadOnly} />
-                          <Label htmlFor={`${st.id}-l`} className={`text-sm cursor-pointer ${isReadOnly ? "opacity-60" : "text-warning"}`}>Leave</Label>
-                        </div>
                       </RadioGroup>
                     </div>
                   </div>
@@ -303,7 +299,6 @@ export default function Attendance() {
               <div className="flex gap-4 text-sm">
                 <span className="text-success font-medium">Present: {summary.present}</span>
                 <span className="text-destructive font-medium">Absent: {summary.absent}</span>
-                <span className="text-warning font-medium">Leave: {summary.leave}</span>
               </div>
               {!isPastDate && !existingRecords && (
                 <Button onClick={handleSubmit} disabled={createAttendance.isPending || slotStudents.length === 0} className="gap-2">

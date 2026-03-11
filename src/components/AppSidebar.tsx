@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, CreditCard, Settings, LogOut, Zap, ClipboardList, Shield } from "lucide-react";
+import { LayoutDashboard, Building2, CreditCard, Settings, LogOut, ClipboardList, Shield } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,8 +40,9 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarContent>
         <div className="p-4 flex items-center gap-2 border-b border-border mb-2">
-          <Zap className="h-7 w-7 text-primary shrink-0" />
-          {!collapsed && (
+          {collapsed ? (
+            <span className="text-lg font-bold text-primary mx-auto">RJ</span>
+          ) : (
             <span className="text-lg font-bold tracking-tight whitespace-nowrap">
               RJ <span className="text-primary neon-text">SPORTZ</span>
             </span>

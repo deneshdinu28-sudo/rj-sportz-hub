@@ -169,6 +169,23 @@ export default function CommunityDetail() {
   };
 
   const handleSaveSport = async () => {
+    // If custom sport, check if it exists in global_sports and add if not
+    const existingGlobal = globalSports.find((g) => g.name === sportForm.sportName);
+    if (!existingGlobal && sportForm.sportName) {
+      // Add to global_sports
+      await supabase.from("global_sports").insert({
+        name: sportForm.sportName,
+        icon: sportForm.sportIcon || "🏃",
+        is_default: false,
+      });
+      // Add shortcode
+      const shortcode = sportForm.sportName.substring(0, 3).toUpperCase();
+      await supabase.from("sport_shortcodes").upsert({
+        sport_name: sportForm.sportName,
+        shortcode,
+      }, { onConflict: "sport_name" });
+    }
+
     const sport = await createSport.mutateAsync({
       name: sportForm.sportName,
       icon: sportForm.sportIcon,
@@ -568,10 +585,16 @@ export default function CommunityDetail() {
               <RadioGroup value={studentForm.payment_plan} onValueChange={(v) => setStudentForm((p) => ({ ...p, payment_plan: v }))} className="space-y-2 mt-1">
                 {(["1m", "3m", "6m"] as const).map((plan) => {
                   const label = plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months";
+                  const getPlanFee = () => {
+                    if (!studentPricing || !selectedSlot) return 0;
+                    const bt = selectedSlot.batch_type;
+                    const key = `${bt}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
+                    return Number((studentPricing as any)[key]) || 0;
+                  };
                   return (
                     <div key={plan} className="flex items-center gap-2">
                       <RadioGroupItem value={plan} id={`pp-${plan}`} />
-                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(getFeeAmount())}</Label>
+                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(getPlanFee())}</Label>
                     </div>
                   );
                 })}
@@ -615,10 +638,14 @@ export default function CommunityDetail() {
             <div>
               <Label>Select Sport *</Label>
               <Select value={sportForm.sportName} onValueChange={async (v) => {
+                if (v === "__custom__") {
+                  setSportForm((p) => ({ ...p, sportName: "", sportIcon: "🏃", coach_id: "", coach_name: "", coach_phone: "" }));
+                  setAvailableCoaches([]);
+                  return;
+                }
                 const gs = globalSports.find((g) => g.name === v);
                 if (gs) {
                   setSportForm((p) => ({ ...p, sportName: gs.name, sportIcon: gs.icon || "🏃", coach_id: "", coach_name: "", coach_phone: "" }));
-                  // Load coaches for this sport
                   const { data: coaches } = await supabase
                     .from("coaches")
                     .select("id, coach_id, name, phone, sport_name")
@@ -633,9 +660,47 @@ export default function CommunityDetail() {
                   {globalSports.filter((gs) => !commSports.some((cs) => cs.name === gs.name)).map((gs) => (
                     <SelectItem key={gs.id} value={gs.name}>{gs.icon} {gs.name}</SelectItem>
                   ))}
+                  <SelectItem value="__custom__">➕ Add Custom Sport</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Custom Sport Fields */}
+            {sportForm.sportName === "" && sportForm.sportIcon === "🏃" && (
+              <div className="space-y-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
+                <p className="text-sm font-semibold text-primary">Create New Sport</p>
+                <div>
+                  <Label className="text-xs">Sport Name *</Label>
+                  <Input
+                    value={sportForm.sportName}
+                    onChange={async (e) => {
+                      const name = e.target.value;
+                      setSportForm((p) => ({ ...p, sportName: name }));
+                      if (name.length > 2) {
+                        const { data: coaches } = await supabase
+                          .from("coaches")
+                          .select("id, coach_id, name, phone, sport_name")
+                          .eq("sport_name", name)
+                          .eq("is_active", true)
+                          .order("name");
+                        setAvailableCoaches(coaches || []);
+                      }
+                    }}
+                    placeholder="e.g., Boxing, Gymnastics"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Sport Icon (Emoji) *</Label>
+                  <Input
+                    value={sportForm.sportIcon}
+                    onChange={(e) => setSportForm((p) => ({ ...p, sportIcon: e.target.value }))}
+                    placeholder="🥊"
+                    maxLength={2}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">💡 This sport will be added to the global list and available for all communities.</p>
+              </div>
+            )}
             
             {/* Coach Dropdown */}
             {sportForm.sportName && (
@@ -690,7 +755,7 @@ export default function CommunityDetail() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddSportOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveSport} disabled={createSport.isPending || !sportForm.sportName || !sportForm.coach_id}>
+            <Button onClick={handleSaveSport} disabled={createSport.isPending || !sportForm.sportName}>
               {createSport.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Adding...</> : "Add Sport →"}
             </Button>
           </DialogFooter>
