@@ -288,10 +288,6 @@ export default function Attendance() {
                           <RadioGroupItem value="absent" id={`${st.id}-a`} disabled={isReadOnly} />
                           <Label htmlFor={`${st.id}-a`} className={`text-sm cursor-pointer ${isReadOnly ? "opacity-60" : "text-destructive"}`}>Absent</Label>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <RadioGroupItem value="leave" id={`${st.id}-l`} disabled={isReadOnly} />
-                          <Label htmlFor={`${st.id}-l`} className={`text-sm cursor-pointer ${isReadOnly ? "opacity-60" : "text-warning"}`}>Leave</Label>
-                        </div>
                       </RadioGroup>
                     </div>
                   </div>
