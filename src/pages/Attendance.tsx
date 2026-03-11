@@ -145,7 +145,7 @@ export default function Attendance() {
   const selectedSportData = allSports.find((s) => s.id === selectedSport);
   const summary = useMemo(() => {
     const vals = Object.values(attendance);
-    return { present: vals.filter((v) => v === "present").length, absent: vals.filter((v) => v === "absent").length, leave: vals.filter((v) => v === "leave").length };
+    return { present: vals.filter((v) => v === "present").length, absent: vals.filter((v) => v === "absent").length };
   }, [attendance]);
 
   const canEdit = isPastDate && existingRecords && !isEditMode;
