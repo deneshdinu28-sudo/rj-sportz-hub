@@ -44,10 +44,9 @@ export default function CoachStudentDetail() {
     const monthRecords = attendanceRecords.filter(a => a.date >= startDate && a.date < endDate);
     const present = monthRecords.filter(a => a.status === "present").length;
     const absent = monthRecords.filter(a => a.status === "absent").length;
-    const leave = monthRecords.filter(a => a.status === "leave").length;
-    const total = present + absent + leave;
+    const total = present + absent;
     const pct = total > 0 ? Math.round((present / total) * 100) : 0;
-    return { present, absent, leave, total, pct };
+    return { present, absent, total, pct };
   }, [attendanceRecords, selectedMonth]);
 
   if (isLoading) {
