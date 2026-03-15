@@ -1,18 +1,25 @@
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MessageSquare, Loader2, TrendingUp, Calendar } from "lucide-react";
+import { ArrowLeft, MessageSquare, Loader2, TrendingUp, Calendar, ChevronLeft, ChevronRight, CalendarClock, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useStudent, useCommunities, useSports, useStudentPayments, useSportPricing, usePromoteStudent, useStudentAttendance, formatCurrencyFull } from "@/hooks/useSupabaseData";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export default function StudentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { data: student, isLoading } = useStudent(id);
+  const { toast } = useToast();
+  const { data: student, isLoading, refetch } = useStudent(id);
   const { data: communities = [] } = useCommunities();
   const { data: sports = [] } = useSports();
   const { data: studentPayments = [] } = useStudentPayments(id);
@@ -20,19 +27,75 @@ export default function StudentDetail() {
   const { data: attendanceRecords = [] } = useStudentAttendance(id);
   const promoteStudent = usePromoteStudent();
 
+  // Month navigation for attendance
+  const [attendanceMonth, setAttendanceMonth] = useState(new Date());
+  
+  // Extend due date modal
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [extendDate, setExtendDate] = useState("");
+  const [extendMessage, setExtendMessage] = useState("");
+  const [extending, setExtending] = useState(false);
+
   const attendanceStats = useMemo(() => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-    const monthRecords = attendanceRecords.filter((a) => a.date >= startOfMonth);
+    const startOfMonth = new Date(attendanceMonth.getFullYear(), attendanceMonth.getMonth(), 1).toISOString().slice(0, 10);
+    const endOfMonth = new Date(attendanceMonth.getFullYear(), attendanceMonth.getMonth() + 1, 0).toISOString().slice(0, 10);
+    const monthRecords = attendanceRecords.filter((a) => a.date >= startOfMonth && a.date <= endOfMonth);
     const present = monthRecords.filter((a) => a.status === "present").length;
     const absent = monthRecords.filter((a) => a.status === "absent").length;
-    const leave = monthRecords.filter((a) => a.status === "leave").length;
-    const total = present + absent + leave;
+    const total = present + absent;
     const pct = total > 0 ? Math.round((present / total) * 100) : 0;
-    return { present, absent, leave, total, pct };
-  }, [attendanceRecords]);
+    return { present, absent, total, pct };
+  }, [attendanceRecords, attendanceMonth]);
 
-  const monthName = new Date().toLocaleString("default", { month: "long", year: "numeric" });
+  const monthLabel = attendanceMonth.toLocaleString("default", { month: "long", year: "numeric" });
+
+  const canGoPrevMonth = useMemo(() => {
+    if (!student) return false;
+    const joiningDate = new Date(student.joining_date);
+    const viewMonth = new Date(attendanceMonth.getFullYear(), attendanceMonth.getMonth(), 1);
+    const joiningMonth = new Date(joiningDate.getFullYear(), joiningDate.getMonth(), 1);
+    return viewMonth > joiningMonth;
+  }, [student, attendanceMonth]);
+
+  const canGoNextMonth = useMemo(() => {
+    const now = new Date();
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const viewMonth = new Date(attendanceMonth.getFullYear(), attendanceMonth.getMonth(), 1);
+    return viewMonth < currentMonth;
+  }, [attendanceMonth]);
+
+  const handleExtendDueDate = async () => {
+    if (!extendDate || !extendMessage.trim() || !student) return;
+    setExtending(true);
+    try {
+      const newDueDate = new Date(extendDate);
+      const newEndDate = new Date(newDueDate);
+      newEndDate.setDate(newEndDate.getDate() - 1);
+
+      const { error } = await supabase
+        .from("students")
+        .update({
+          next_due_date: extendDate,
+          payment_end_date: newEndDate.toISOString().slice(0, 10),
+          fee_status: "paid",
+          days_overdue: 0,
+        })
+        .eq("id", student.id);
+
+      if (error) throw error;
+
+      toast({ title: "Due date extended successfully", description: `New due date: ${extendDate}` });
+      setExtendOpen(false);
+      setExtendDate("");
+      setExtendMessage("");
+      refetch();
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Failed to extend due date", variant: "destructive" });
+    } finally {
+      setExtending(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -94,6 +157,11 @@ export default function StudentDetail() {
             <Badge variant={student.fee_status === "paid" ? "default" : student.fee_status === "awaiting_first" ? "secondary" : student.fee_status === "overdue" ? "destructive" : "secondary"}>
               {student.fee_status === "paid" ? "✅ Paid" : student.fee_status === "awaiting_first" ? "✨ New" : student.fee_status === "overdue" ? "🔴 Overdue" : "⚠️ Pending"}
             </Badge>
+            {(student.fee_status === "unpaid" || student.fee_status === "overdue" || student.fee_status === "paid") && student.next_due_date && (
+              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setExtendOpen(true)}>
+                <CalendarClock className="h-3 w-3" /> Extend Due
+              </Button>
+            )}
             {canPromote && (
               <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={handlePromote} disabled={promoteStudent.isPending}>
                 {promoteStudent.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <TrendingUp className="h-3 w-3" />}
@@ -146,13 +214,36 @@ export default function StudentDetail() {
               </CardContent>
             </Card>
 
-            {/* Attendance Info Card */}
+            {/* Attendance with month navigation */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  Attendance — {monthName}
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    Attendance
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={!canGoPrevMonth}
+                      onClick={() => setAttendanceMonth(new Date(attendanceMonth.getFullYear(), attendanceMonth.getMonth() - 1, 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs font-medium min-w-[120px] text-center">{monthLabel}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      disabled={!canGoNextMonth}
+                      onClick={() => setAttendanceMonth(new Date(attendanceMonth.getFullYear(), attendanceMonth.getMonth() + 1, 1))}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-3 gap-3 text-center">
@@ -178,9 +269,6 @@ export default function StudentDetail() {
                   </div>
                   <Progress value={attendanceStats.pct} className="h-2" />
                 </div>
-                {attendanceStats.leave > 0 && (
-                  <p className="text-xs text-muted-foreground">Leaves: {attendanceStats.leave}</p>
-                )}
               </CardContent>
             </Card>
           </div>
@@ -211,6 +299,53 @@ export default function StudentDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Extend Due Date Dialog */}
+      <Dialog open={extendOpen} onOpenChange={setExtendOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Extend Due Date</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-muted-foreground text-xs">Current Due Date</Label>
+              <p className="font-medium">{student.next_due_date}</p>
+            </div>
+            <div>
+              <Label>New Due Date *</Label>
+              <Input
+                type="date"
+                value={extendDate}
+                onChange={e => setExtendDate(e.target.value)}
+                min={student.next_due_date || undefined}
+              />
+            </div>
+            <div>
+              <Label>Message to Parent *</Label>
+              <Textarea
+                value={extendMessage}
+                onChange={e => setExtendMessage(e.target.value)}
+                placeholder="e.g., Due date extended as requested due to vacation"
+                rows={3}
+              />
+            </div>
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-xs text-warning">
+              ⚠️ Parent will receive WhatsApp notification with your message
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExtendOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleExtendDueDate}
+              disabled={extending || !extendDate || !extendMessage.trim()}
+              className="gap-1"
+            >
+              {extending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Extend & Notify
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
