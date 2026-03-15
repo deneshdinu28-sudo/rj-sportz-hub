@@ -244,7 +244,11 @@ export default function Dashboard() {
                   const sport = sports.find((s) => s.id === st.sport_id);
                   const isOverdue = st.fee_status === "overdue";
                   return (
-                    <div key={st.id} className={`p-3 rounded-lg border ${isOverdue ? "border-destructive/40 bg-destructive/5" : "border-warning/30 bg-warning/5"}`}>
+                    <div
+                      key={st.id}
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors hover:border-primary/50 ${isOverdue ? "border-destructive/40 bg-destructive/5" : "border-warning/30 bg-warning/5"}`}
+                      onClick={() => navigate(`/students/${st.id}`)}
+                    >
                       <div className="flex items-start justify-between mb-1">
                         <div>
                           <Badge variant={isOverdue ? "destructive" : "secondary"} className="text-xs mb-1">
@@ -255,7 +259,7 @@ export default function Dashboard() {
                         </div>
                         <p className="font-bold">{formatCurrencyFull(Number(st.fee_amount))}</p>
                       </div>
-                      <div className="flex gap-2 mt-2">
+                      <div className="flex gap-2 mt-2" onClick={e => e.stopPropagation()}>
                         <Button variant="outline" size="sm" className="gap-1 text-xs h-7" asChild>
                           <a href={`tel:+91${st.parent_whatsapp}`}><Phone className="h-3 w-3" /> Call</a>
                         </Button>
@@ -264,6 +268,7 @@ export default function Dashboard() {
                         </Button>
                         <Button size="sm" className="gap-1 text-xs h-7" onClick={() => navigate("/payments")}>Mark Paid</Button>
                       </div>
+                      <p className="text-xs text-primary mt-2">Click to view profile →</p>
                     </div>
                   );
                 })}

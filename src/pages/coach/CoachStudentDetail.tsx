@@ -44,10 +44,9 @@ export default function CoachStudentDetail() {
     const monthRecords = attendanceRecords.filter(a => a.date >= startDate && a.date < endDate);
     const present = monthRecords.filter(a => a.status === "present").length;
     const absent = monthRecords.filter(a => a.status === "absent").length;
-    const leave = monthRecords.filter(a => a.status === "leave").length;
-    const total = present + absent + leave;
+    const total = present + absent;
     const pct = total > 0 ? Math.round((present / total) * 100) : 0;
-    return { present, absent, leave, total, pct };
+    return { present, absent, total, pct };
   }, [attendanceRecords, selectedMonth]);
 
   if (isLoading) {
@@ -149,7 +148,7 @@ export default function CoachStudentDetail() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-4 gap-3 text-center">
+            <div className="grid grid-cols-3 gap-3 text-center">
               <div className="p-2 rounded-lg bg-muted/50">
                 <p className="text-xl font-bold">{monthStats.total}</p>
                 <p className="text-[10px] text-muted-foreground">Total Classes</p>
@@ -161,10 +160,6 @@ export default function CoachStudentDetail() {
               <div className="p-2 rounded-lg bg-destructive/10">
                 <p className="text-xl font-bold text-destructive">{monthStats.absent}</p>
                 <p className="text-[10px] text-muted-foreground">Absent</p>
-              </div>
-              <div className="p-2 rounded-lg bg-warning/10">
-                <p className="text-xl font-bold text-warning">{monthStats.leave}</p>
-                <p className="text-[10px] text-muted-foreground">Leave</p>
               </div>
             </div>
             <div className="space-y-1">
