@@ -304,13 +304,37 @@ export default function StudentDetail() {
       <Dialog open={extendOpen} onOpenChange={setExtendOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Extend Due Date</DialogTitle>
+            <DialogTitle>Extend Payment Due Date</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Student info banner */}
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
+              <span className="text-2xl">{sport?.icon}</span>
+              <div>
+                <p className="font-semibold text-sm">{student.name}</p>
+                <p className="text-xs text-muted-foreground">{student.student_id} • {community?.name}</p>
+              </div>
+            </div>
+
+            {/* Current due date */}
             <div>
               <Label className="text-muted-foreground text-xs">Current Due Date</Label>
-              <p className="font-medium">{student.next_due_date}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="font-semibold">
+                  {student.next_due_date ? new Date(student.next_due_date + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Not set"}
+                </p>
+                {student.next_due_date && (
+                  <span className="text-xs text-muted-foreground">
+                    ({new Date(student.next_due_date + "T00:00:00").toLocaleDateString("en-IN", { weekday: "long" })})
+                  </span>
+                )}
+                {(student.days_overdue ?? 0) > 0 && (
+                  <Badge variant="destructive" className="text-[10px]">{student.days_overdue} days overdue</Badge>
+                )}
+              </div>
             </div>
+
+            {/* New due date */}
             <div>
               <Label>New Due Date *</Label>
               <Input
@@ -319,7 +343,24 @@ export default function StudentDetail() {
                 onChange={e => setExtendDate(e.target.value)}
                 min={student.next_due_date || undefined}
               />
+              {extendDate && (
+                <div className="mt-2 p-2 rounded-md bg-primary/10 border border-primary/20 text-xs">
+                  <p className="font-medium text-primary">
+                    {new Date(extendDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                    <span className="text-muted-foreground ml-1">
+                      ({new Date(extendDate + "T00:00:00").toLocaleDateString("en-IN", { weekday: "long" })})
+                    </span>
+                  </p>
+                  {student.next_due_date && (
+                    <p className="text-muted-foreground mt-0.5">
+                      Extension: {Math.round((new Date(extendDate).getTime() - new Date(student.next_due_date).getTime()) / (1000 * 60 * 60 * 24))} days
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* Message */}
             <div>
               <Label>Message to Parent *</Label>
               <Textarea
@@ -327,10 +368,19 @@ export default function StudentDetail() {
                 onChange={e => setExtendMessage(e.target.value)}
                 placeholder="e.g., Due date extended as requested due to vacation"
                 rows={3}
+                maxLength={200}
               />
+              <p className="text-xs text-muted-foreground mt-1">{extendMessage.length}/200 characters</p>
             </div>
-            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-xs text-warning">
-              ⚠️ Parent will receive WhatsApp notification with your message
+
+            {/* Warning */}
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-xs space-y-1">
+              <p className="font-medium text-warning">⚠️ Important:</p>
+              <ul className="text-muted-foreground space-y-0.5 list-disc list-inside">
+                <li>Fee status will be set to "Paid"</li>
+                <li>Parent will receive WhatsApp notification</li>
+                <li>This action cannot be undone</li>
+              </ul>
             </div>
           </div>
           <DialogFooter>
@@ -341,7 +391,7 @@ export default function StudentDetail() {
               className="gap-1"
             >
               {extending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Extend & Notify
+              Extend & Notify Parent
             </Button>
           </DialogFooter>
         </DialogContent>
