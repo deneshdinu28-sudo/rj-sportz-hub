@@ -157,7 +157,7 @@ export default function StudentDetail() {
             <Badge variant={student.fee_status === "paid" ? "default" : student.fee_status === "awaiting_first" ? "secondary" : student.fee_status === "overdue" ? "destructive" : "secondary"}>
               {student.fee_status === "paid" ? "✅ Paid" : student.fee_status === "awaiting_first" ? "✨ New" : student.fee_status === "overdue" ? "🔴 Overdue" : "⚠️ Pending"}
             </Badge>
-            {(student.fee_status === "unpaid" || student.fee_status === "overdue" || student.fee_status === "paid") && student.next_due_date && (
+            {student.next_due_date && (
               <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setExtendOpen(true)}>
                 <CalendarClock className="h-3 w-3" /> Extend Due
               </Button>
