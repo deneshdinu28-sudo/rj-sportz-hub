@@ -1,6 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Phone, MessageSquare, Plus, ChevronDown, ChevronUp, Search, Edit2, Users, Trophy, IndianRupee, AlertTriangle, Clock, Loader2, MapPin, User } from "lucide-react";
+import { ArrowLeft, Phone, MessageSquare, Plus, ChevronDown, ChevronUp, Search, Edit2, Users, Trophy, IndianRupee, AlertTriangle, Clock, Loader2, MapPin, User, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -600,7 +604,27 @@ export default function CommunityDetail() {
                 })}
               </RadioGroup>
             </div>
-            <div><Label>Joining Date *</Label><Input type="date" value={studentForm.joining_date} onChange={(e) => setStudentForm((p) => ({ ...p, joining_date: e.target.value }))} /></div>
+            <div>
+              <Label>Joining Date *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !studentForm.joining_date && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {studentForm.joining_date ? format(new Date(studentForm.joining_date + "T00:00:00"), "dd MMM yyyy") : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={studentForm.joining_date ? new Date(studentForm.joining_date + "T00:00:00") : undefined}
+                    onSelect={(date) => date && setStudentForm((p) => ({ ...p, joining_date: format(date, "yyyy-MM-dd") }))}
+                    disabled={(date) => date > new Date()}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
 
             <div className="border-t border-border pt-3">
               <p className="text-sm font-semibold">Student ID (Auto-generated)</p>
