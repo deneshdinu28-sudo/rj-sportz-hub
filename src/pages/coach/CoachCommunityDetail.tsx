@@ -360,7 +360,27 @@ export default function CoachCommunityDetail() {
               </RadioGroup>
             </div>
 
-            <div><Label>Joining Date *</Label><Input type="date" value={form.joining_date} onChange={e => setForm(p => ({ ...p, joining_date: e.target.value }))} /></div>
+            <div>
+              <Label>Joining Date *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.joining_date && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {form.joining_date ? format(new Date(form.joining_date + "T00:00:00"), "dd MMM yyyy") : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={form.joining_date ? new Date(form.joining_date + "T00:00:00") : undefined}
+                    onSelect={(date) => date && setForm((p) => ({ ...p, joining_date: format(date, "yyyy-MM-dd") }))}
+                    disabled={(date) => date > new Date()}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
 
             <div className="border-t border-border pt-3">
               <p className="text-sm font-semibold">Student ID (Auto-generated)</p>
