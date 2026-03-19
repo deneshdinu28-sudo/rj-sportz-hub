@@ -296,6 +296,33 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          qr_code_url: string | null
+          updated_at: string | null
+          upi_id: string | null
+          upi_number: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          qr_code_url?: string | null
+          updated_at?: string | null
+          upi_id?: string | null
+          upi_number?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          qr_code_url?: string | null
+          updated_at?: string | null
+          upi_id?: string | null
+          upi_number?: string | null
+        }
+        Relationships: []
+      }
       payment_students: {
         Row: {
           allocated_amount: number
@@ -762,6 +789,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      whatsapp_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          template: string
+          template_id: string
+          updated_at: string | null
+          variables: string[] | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          template: string
+          template_id: string
+          updated_at?: string | null
+          variables?: string[] | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          template?: string
+          template_id?: string
+          updated_at?: string | null
+          variables?: string[] | null
+        }
+        Relationships: []
       }
     }
     Views: {
