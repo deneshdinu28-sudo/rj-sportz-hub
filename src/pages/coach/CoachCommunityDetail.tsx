@@ -246,7 +246,7 @@ export default function CoachCommunityDetail() {
                 if (assignment) navigate(`/coach/attendance/${assignment.id}`);
               }}
             >
-              <Calendar className="h-3 w-3" /> {sport.icon} {sport.name} Attendance
+              <CalendarIcon className="h-3 w-3" /> {sport.icon} {sport.name} Attendance
             </Button>
           ))}
         </div>
