@@ -154,13 +154,16 @@ export default function CommunityDetail() {
 
   const handleSaveStudent = async () => {
     const feeAmount = getFeeAmount();
+    const ageNum = parseInt(studentForm.age) || 10;
     await createStudent.mutateAsync({
       student_id: getStudentId(),
       name: studentForm.name,
-      age: parseInt(studentForm.age) || 10,
+      age: ageNum,
       parent_name: studentForm.parent_name,
       parent_whatsapp: studentForm.parent_whatsapp,
       parent_phone: studentForm.parent_phone,
+      student_whatsapp: ageNum >= 15 ? studentForm.student_whatsapp : "",
+      student_phone: ageNum >= 15 ? (studentForm.student_phone || studentForm.student_whatsapp) : "",
       community_id: id!,
       sport_id: studentForm.sport_id,
       time_slot_id: studentForm.time_slot_id,
