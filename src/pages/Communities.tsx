@@ -10,13 +10,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useCommunities, useStudents, usePayments, useSports, useGlobalSports, useCreateCommunity, useDeleteCommunity, formatCurrency, formatCurrencyFull } from "@/hooks/useSupabaseData";
+import { useCommunities, useStudents, usePayments, useSports, useGlobalSports, useCreateCommunity, useDeleteCommunity, useCoaches, formatCurrency, formatCurrencyFull } from "@/hooks/useSupabaseData";
+import { Lock, X, MessageSquare, AlertTriangle } from "lucide-react";
 
 interface SportPricingEntry {
   sportName: string;
   sportIcon: string;
   coach_name: string;
   coach_phone: string;
+  coach_ids: string[];
   standard_1month: string;
   standard_3months: string;
   standard_6months: string;
