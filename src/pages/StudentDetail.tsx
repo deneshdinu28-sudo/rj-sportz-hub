@@ -193,6 +193,19 @@ export default function StudentDetail() {
     });
   };
 
+  const studentType: "kid" | "adult" =
+    ((student as { student_type?: string }).student_type as "kid" | "adult") ||
+    (student.age_group === "adults" ? "adult" : "kid");
+
+  const buildWelcomeMessage = () => {
+    const tpl = studentType === "adult"
+      ? `🏆 Welcome to RJ Sportz!\n\nDear ${student.parent_name},\n\n${student.name} has been successfully enrolled. We are glad to have them on board!\n\nStudent: ${student.name}\nStudent ID: ${student.student_id}\nSport: ${sport?.name ?? ""}\nCommunity: ${community?.name ?? ""}\nBatch: ${student.batch_type} • ${student.age_group}\nMonthly Fee: ₹${student.fee_amount}\nNext Due Date: ${student.next_due_date ?? ""}\n\nOur coaches will work closely to help ${student.name} achieve their sporting goals. Consistency and regular attendance will make all the difference!\n\nWelcome aboard! 🎯\n\nRJ Sportz Team`
+      : `🏸 Welcome to RJ Sportz!\n\nDear ${student.parent_name},\n\nYour child has been successfully enrolled and we are so excited to have them!\n\nStudent: ${student.name}\nStudent ID: ${student.student_id}\nSport: ${sport?.name ?? ""}\nCommunity: ${community?.name ?? ""}\nBatch: ${student.batch_type} • ${student.age_group}\nMonthly Fee: ₹${student.fee_amount}\nNext Due Date: ${student.next_due_date ?? ""}\n\nPlease ensure ${student.name} comes with:\n✅ Comfortable sportswear\n✅ Water bottle\n✅ Lots of energy!\n\nWe look forward to seeing ${student.name} grow with us! 🌱\n\nRJ Sportz Team`;
+    return tpl;
+  };
+
+  const welcomeWaUrl = `https://wa.me/91${student.parent_whatsapp}?text=${encodeURIComponent(buildWelcomeMessage())}`;
+
   return (
     <div className="space-y-6">
       <div>
@@ -208,13 +221,29 @@ export default function StudentDetail() {
         </div>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold">{student.name}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold">{student.name}</h1>
+              <Badge
+                className={
+                  studentType === "kid"
+                    ? "bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20"
+                    : "bg-purple-500/15 text-purple-400 border border-purple-500/30 hover:bg-purple-500/20"
+                }
+              >
+                {studentType === "kid" ? "👦 Kid" : "👤 Adult"}
+              </Badge>
+            </div>
             <p className="text-muted-foreground text-sm font-mono">{student.student_id}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             <Badge variant={student.fee_status === "paid" ? "default" : student.fee_status === "awaiting_first" ? "secondary" : student.fee_status === "overdue" ? "destructive" : "secondary"}>
               {student.fee_status === "paid" ? "✅ Paid" : student.fee_status === "awaiting_first" ? "✨ New" : student.fee_status === "overdue" ? "🔴 Overdue" : "⚠️ Pending"}
             </Badge>
+            <Button asChild size="sm" variant="outline" className="gap-1 text-xs">
+              <a href={welcomeWaUrl} target="_blank" rel="noopener noreferrer">
+                <MessageSquare className="h-3 w-3" /> Send Welcome
+              </a>
+            </Button>
             {student.next_due_date && (
               <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setExtendOpen(true)}>
                 <CalendarClock className="h-3 w-3" /> Extend Due
