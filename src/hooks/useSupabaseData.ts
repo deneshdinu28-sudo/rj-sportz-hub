@@ -326,10 +326,32 @@ export function useMarkPayment() {
       const { data: student } = await supabase.from("students").select("*").eq("id", input.student_id).single();
       if (!student) throw new Error("Student not found");
 
+      // Auto-detect plan from amount using sport_pricing for the student's sport+community+batch
+      const { data: pricingRow } = await supabase
+        .from("sport_pricing")
+        .select("*")
+        .eq("sport_id", student.sport_id)
+        .eq("community_id", student.community_id)
+        .maybeSingle();
+
+      const batchType = student.batch_type === "premium" ? "premium" : "standard";
+      const detectPlanFromAmount = (amt: number): string | null => {
+        if (!pricingRow) return null;
+        if (Number(amt) === Number(pricingRow[`${batchType}_1month`])) return "1m";
+        if (Number(amt) === Number(pricingRow[`${batchType}_3months`])) return "3m";
+        if (Number(amt) === Number(pricingRow[`${batchType}_6months`])) return "6m";
+        return null;
+      };
+
+      // Effective plan: 1) admin-selected plan_period, 2) detected from amount, 3) student's current plan
+      const detectedPlan = detectPlanFromAmount(input.amount);
+      const effectivePlan = input.plan_period || detectedPlan || student.payment_plan || "1m";
+      const planAutoUpgraded = !!detectedPlan && detectedPlan !== student.payment_plan && !input.plan_period;
+
       // CRITICAL: Calculate from original due date, NOT payment date
       const baseDate = student.next_due_date ? new Date(student.next_due_date) : new Date(input.payment_date);
       const monthsMap: Record<string, number> = { "1m": 1, "3m": 3, "6m": 6 };
-      const months = monthsMap[input.plan_period] || monthsMap[student.payment_plan] || 1;
+      const months = monthsMap[effectivePlan] || 1;
       const periodEnd = addMonths(baseDate, months);
       const nextDue = addDays(periodEnd, 1);
 
@@ -338,17 +360,40 @@ export function useMarkPayment() {
       const { data: payment, error: pErr } = await supabase.from("payments").insert({
         student_id: input.student_id, student_code: input.student_code, receipt_number: receiptNumber,
         amount: input.amount, payment_date: input.payment_date, payment_mode: input.payment_mode,
-        transaction_id: input.transaction_id || null, plan_period: input.plan_period || student.payment_plan,
+        transaction_id: input.transaction_id || null, plan_period: effectivePlan,
         period_start: format(baseDate, "yyyy-MM-dd"), period_end: format(periodEnd, "yyyy-MM-dd"),
         verification_method: "manual", verified_at: new Date().toISOString(),
       }).select().single();
       if (pErr) throw pErr;
 
-      const { error: sErr } = await supabase.from("students").update({
-        fee_status: "paid", payment_start_date: format(baseDate, "yyyy-MM-dd"),
-        payment_end_date: format(periodEnd, "yyyy-MM-dd"), next_due_date: format(nextDue, "yyyy-MM-dd"),
-      }).eq("id", input.student_id);
+      const studentUpdate: Record<string, unknown> = {
+        fee_status: "paid",
+        payment_start_date: format(baseDate, "yyyy-MM-dd"),
+        payment_end_date: format(periodEnd, "yyyy-MM-dd"),
+        next_due_date: format(nextDue, "yyyy-MM-dd"),
+      };
+      // If plan was auto-upgraded by amount, persist the new plan and fee
+      if (planAutoUpgraded && pricingRow) {
+        const feeKey = `${batchType}_${effectivePlan === "1m" ? "1month" : effectivePlan === "3m" ? "3months" : "6months"}`;
+        studentUpdate.payment_plan = effectivePlan;
+        studentUpdate.fee_amount = Number(pricingRow[feeKey]);
+        studentUpdate.plan_change_effective_from = null;
+        studentUpdate.plan_change_requested_at = null;
+      }
+      const { error: sErr } = await supabase.from("students").update(studentUpdate).eq("id", input.student_id);
       if (sErr) throw sErr;
+
+      // Log auto-upgrade
+      if (planAutoUpgraded) {
+        await supabase.from("plan_change_logs").insert({
+          student_id: student.id,
+          student_code: student.student_id,
+          previous_plan: student.payment_plan,
+          new_plan: effectivePlan,
+          effective_from: format(baseDate, "yyyy-MM-dd"),
+          note: "Plan auto-upgraded based on payment amount received",
+        });
+      }
 
       return payment;
     },
