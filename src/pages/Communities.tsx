@@ -334,8 +334,117 @@ export default function Communities() {
               </div>
             )}
 
-            <div><Label>Coach Name</Label><Input value={newSportPricing.coach_name} onChange={(e) => setNewSportPricing((p) => ({ ...p, coach_name: e.target.value }))} placeholder="Ramesh Kumar" /></div>
-            <div><Label>Coach Phone</Label><Input value={newSportPricing.coach_phone} onChange={(e) => setNewSportPricing((p) => ({ ...p, coach_phone: e.target.value }))} placeholder="9876543210" /></div>
+            {/* Coach selector — smart dropdown filtered by sport */}
+            <div className="space-y-2">
+              <Label>Assign Coach(es)</Label>
+              {!newSportPricing.sportName && !isCustomSport ? (
+                <p className="text-xs text-muted-foreground">Select a sport first to load available coaches.</p>
+              ) : isCustomSport ? (
+                <p className="text-xs text-muted-foreground">Coaches can be assigned later from the Coaches page for custom sports.</p>
+              ) : coachesLoading ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 rounded-md border border-border">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading coaches…
+                </div>
+              ) : coachesForSport.length === 0 ? (
+                <div className="flex items-start gap-2 p-3 rounded-md border border-warning/40 bg-warning/10 text-xs">
+                  <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-warning">No coaches available for {newSportPricing.sportName}</p>
+                    <p className="text-muted-foreground mt-0.5">→ Add a coach first in the Coaches section</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Select
+                    value=""
+                    onValueChange={(coachId) => {
+                      const coach = coachesForSport.find((c) => c.id === coachId);
+                      if (!coach) return;
+                      setNewSportPricing((p) => {
+                        if (p.coach_ids.includes(coachId)) return p;
+                        const newIds = [...p.coach_ids, coachId];
+                        const selected = coachesForSport.filter((c) => newIds.includes(c.id));
+                        return {
+                          ...p,
+                          coach_ids: newIds,
+                          coach_name: selected.map((c) => c.name).join(", "),
+                          coach_phone: selected.map((c) => c.phone || "").filter(Boolean).join(", "),
+                        };
+                      });
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select coach to add…" /></SelectTrigger>
+                    <SelectContent>
+                      {coachesForSport
+                        .filter((c) => !newSportPricing.coach_ids.includes(c.id))
+                        .map((c) => {
+                          const initials = c.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+                          return (
+                            <SelectItem key={c.id} value={c.id}>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-background border border-primary/40 text-primary text-[10px] font-bold">{initials}</span>
+                                <span className="font-medium">{c.name}</span>
+                                <span className="text-muted-foreground text-xs">({c.coach_id}) • {c.phone || "—"}</span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      {coachesForSport.filter((c) => !newSportPricing.coach_ids.includes(c.id)).length === 0 && (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">All coaches added</div>
+                      )}
+                    </SelectContent>
+                  </Select>
+
+                  {newSportPricing.coach_ids.length > 0 && (
+                    <div className="flex flex-wrap gap-2 animate-in fade-in duration-200">
+                      {newSportPricing.coach_ids.map((cid) => {
+                        const c = coachesForSport.find((x) => x.id === cid);
+                        if (!c) return null;
+                        return (
+                          <div key={cid} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-primary/40 bg-primary/10 text-xs">
+                            <span className="font-medium">{c.name}</span>
+                            <span className="text-muted-foreground">({c.coach_id})</span>
+                            <button
+                              type="button"
+                              onClick={() => setNewSportPricing((p) => {
+                                const newIds = p.coach_ids.filter((x) => x !== cid);
+                                const selected = coachesForSport.filter((x) => newIds.includes(x.id));
+                                return {
+                                  ...p,
+                                  coach_ids: newIds,
+                                  coach_name: selected.map((x) => x.name).join(", "),
+                                  coach_phone: selected.map((x) => x.phone || "").filter(Boolean).join(", "),
+                                };
+                              })}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Auto-filled phone (read-only) */}
+                  <div>
+                    <Label className="text-xs">Coach Phone (auto-filled)</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                      <Input
+                        readOnly
+                        value={newSportPricing.coach_phone || ""}
+                        placeholder="—"
+                        className="pl-8 text-primary font-medium bg-muted/30"
+                      />
+                      {newSportPricing.coach_ids.some((cid) => coachesForSport.find((c) => c.id === cid)?.phone) && (
+                        <MessageSquare className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary" />
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             <div className="border-t border-border pt-3">
               <p className="text-sm font-semibold mb-3">STANDARD BATCH PRICING</p>
