@@ -102,6 +102,54 @@ export default function StudentDetail() {
     }
   };
 
+  // Plan pricing helpers (uses sport_pricing for student's community + sport)
+  const planPrices = useMemo(() => {
+    if (!student) return null;
+    const p = allPricing.find((pp) => pp.sport_id === student.sport_id && pp.community_id === student.community_id);
+    if (!p) return null;
+    const tier = student.batch_type === "premium" ? "premium" : "standard";
+    return {
+      "1m": Number(tier === "premium" ? p.premium_1month : p.standard_1month),
+      "3m": Number(tier === "premium" ? p.premium_3months : p.standard_3months),
+      "6m": Number(tier === "premium" ? p.premium_6months : p.standard_6months),
+    };
+  }, [student, allPricing]);
+
+  const handleChangePlan = async () => {
+    if (!student || !selectedPlan || selectedPlan === student.payment_plan || !planPrices) return;
+    setChangingPlan(true);
+    try {
+      const newAmount = planPrices[selectedPlan];
+      const { error } = await supabase
+        .from("students")
+        .update({ payment_plan: selectedPlan, fee_amount: newAmount })
+        .eq("id", student.id);
+      if (error) throw error;
+
+      await supabase.from("plan_change_logs").insert({
+        student_id: student.id,
+        student_code: student.student_id,
+        previous_plan: student.payment_plan,
+        new_plan: selectedPlan,
+        effective_from: student.next_due_date,
+        note: "Plan changed by admin",
+      });
+
+      const niceDate = student.next_due_date
+        ? new Date(student.next_due_date + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+        : "next cycle";
+      toast({ title: "Plan updated!", description: `Takes effect from ${niceDate}` });
+      setPlanOpen(false);
+      setSelectedPlan("");
+      refetch();
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Failed to change plan", variant: "destructive" });
+    } finally {
+      setChangingPlan(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
