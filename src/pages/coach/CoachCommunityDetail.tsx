@@ -63,6 +63,7 @@ export default function CoachCommunityDetail() {
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({
     name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
+    student_type: "kid" as "kid" | "adult",
     sport_id: "", time_slot_id: "", age_group: "kids", payment_plan: "1m",
     joining_date: new Date().toISOString().slice(0, 10),
   });
@@ -147,6 +148,7 @@ export default function CoachCommunityDetail() {
   const openAddStudent = () => {
     setForm({
       name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
+      student_type: "kid",
       sport_id: sports[0]?.id ?? "", time_slot_id: "", age_group: "kids",
       payment_plan: "1m", joining_date: new Date().toISOString().slice(0, 10),
     });
@@ -162,14 +164,15 @@ export default function CoachCommunityDetail() {
       parent_name: form.parent_name,
       parent_whatsapp: form.parent_whatsapp,
       parent_phone: form.parent_phone || form.parent_whatsapp,
+      student_type: form.student_type,
       community_id: communityId!,
       sport_id: form.sport_id,
       time_slot_id: form.time_slot_id,
       batch_type: selectedSlot?.batch_type || "standard",
       age_group: form.age_group,
       payment_plan: form.payment_plan,
-      fee_amount: feeAmount,
       joining_date: form.joining_date,
+      fee_amount: feeAmount,
       batch_time: selectedSlot ? `${formatTime(selectedSlot.start_time)}-${formatTime(selectedSlot.end_time)}` : "",
     });
     setAddOpen(false);
