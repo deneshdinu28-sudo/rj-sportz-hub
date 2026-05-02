@@ -36,7 +36,6 @@ export default function Communities() {
   const { data: globalSports = [] } = useGlobalSports();
   const createCommunity = useCreateCommunity();
   const deleteCommunityMut = useDeleteCommunity();
-  const { data: coachesForSport = [], isLoading: coachesLoading } = useCoaches(newSportPricing?.sportName || undefined);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -54,6 +53,7 @@ export default function Communities() {
   const [isCustomSport, setIsCustomSport] = useState(false);
   const [customSportName, setCustomSportName] = useState("");
   const [customSportIcon, setCustomSportIcon] = useState("🏅");
+  const { data: coachesForSport = [], isLoading: coachesLoading } = useCoaches(newSportPricing.sportName || undefined);
 
   const globalStats = useMemo(() => ({
     communities: communities.length,
