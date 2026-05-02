@@ -457,6 +457,101 @@ export default function StudentDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Change Plan Dialog */}
+      <Dialog open={planOpen} onOpenChange={setPlanOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Change Payment Plan</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
+              <span className="text-2xl">{sport?.icon}</span>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">{student.name}</p>
+                <p className="text-xs text-muted-foreground">{student.student_id} • {sport?.name} • {student.batch_type}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-muted-foreground">Current</p>
+                <p className="text-sm font-semibold">{student.payment_plan === "1m" ? "1M" : student.payment_plan === "3m" ? "3M" : "6M"} • {formatCurrencyFull(Number(student.fee_amount))}</p>
+              </div>
+            </div>
+
+            {!planPrices ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Pricing not configured for this sport.</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {(["1m", "3m", "6m"] as const).map((p) => {
+                  const isCurrent = p === student.payment_plan;
+                  const isSelected = p === selectedPlan;
+                  const price = planPrices[p];
+                  const months = p === "1m" ? 1 : p === "3m" ? 3 : 6;
+                  const savings = months > 1 ? planPrices["1m"] * months - price : 0;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      disabled={isCurrent}
+                      onClick={() => setSelectedPlan(p)}
+                      className={`relative p-3 rounded-lg border-2 text-left transition-all duration-200 ${
+                        isCurrent
+                          ? "border-border bg-muted/30 opacity-60 cursor-not-allowed"
+                          : isSelected
+                          ? "border-primary bg-primary/10 shadow-[0_0_12px_hsl(var(--primary)/0.25)]"
+                          : "border-border hover:border-primary/50 hover:shadow-[0_0_12px_hsl(var(--primary)/0.15)]"
+                      }`}
+                    >
+                      {isCurrent && <span className="absolute -top-2 right-2 text-[9px] px-1.5 py-0.5 rounded-full bg-muted border border-border">current</span>}
+                      {isSelected && !isCurrent && <Check className="absolute top-2 right-2 h-3.5 w-3.5 text-primary" />}
+                      <p className="text-xs text-muted-foreground">{p === "1m" ? "1 Month" : p === "3m" ? "3 Months" : "6 Months"}</p>
+                      <p className="font-bold text-sm mt-1">{formatCurrencyFull(price)}</p>
+                      {savings > 0 && (
+                        <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded-full bg-success/20 text-success font-medium">
+                          Save ₹{savings.toLocaleString("en-IN")}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-xs space-y-1">
+              <p className="font-medium text-warning">ℹ️ How this works</p>
+              <ul className="text-muted-foreground space-y-0.5 list-disc list-inside">
+                <li>New plan starts from next due date</li>
+                <li>Current period is NOT affected</li>
+                <li>Next payment will be at new rate</li>
+                <li>Parent will be notified via WhatsApp</li>
+              </ul>
+            </div>
+
+            {selectedPlan && selectedPlan !== student.payment_plan && planPrices && (
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm">
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Next Due Date</p>
+                  <p className="font-semibold">
+                    {student.next_due_date
+                      ? new Date(student.next_due_date + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">New Amount Due</p>
+                  <p className="font-semibold text-primary">{formatCurrencyFull(planPrices[selectedPlan])}</p>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPlanOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleChangePlan}
+              disabled={changingPlan || !selectedPlan || selectedPlan === student.payment_plan}
+            >
+              {changingPlan ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Updating…</> : "Confirm Plan Change"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
