@@ -122,7 +122,12 @@ export default function StudentDetail() {
       const newAmount = planPrices[selectedPlan];
       const { error } = await supabase
         .from("students")
-        .update({ payment_plan: selectedPlan, fee_amount: newAmount })
+        .update({
+          payment_plan: selectedPlan,
+          fee_amount: newAmount,
+          plan_change_effective_from: student.next_due_date,
+          plan_change_requested_at: new Date().toISOString(),
+        })
         .eq("id", student.id);
       if (error) throw error;
 
