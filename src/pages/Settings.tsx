@@ -531,6 +531,11 @@ export default function Settings() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* INTEGRATIONS TAB */}
+        <TabsContent value="integrations" className="mt-4">
+          <IntegrationsTab />
+        </TabsContent>
       </Tabs>
 
       {/* WhatsApp Template Preview Dialog */}
