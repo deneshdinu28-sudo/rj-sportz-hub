@@ -248,20 +248,19 @@ export function useCreateStudent() {
   return useMutation({
     mutationFn: async (input: {
       student_id: string; name: string; age: number; parent_name: string; parent_whatsapp: string; parent_phone: string;
-      student_whatsapp?: string; student_phone?: string;
+      student_type: "kid" | "adult";
       community_id: string; sport_id: string; time_slot_id: string; batch_type: string; age_group: string;
       payment_plan: string; fee_amount: number; joining_date: string; batch_time: string;
     }) => {
       const { data, error } = await supabase.from("students").insert({
         student_id: input.student_id, name: input.name, age: input.age, parent_name: input.parent_name,
         parent_whatsapp: input.parent_whatsapp, parent_phone: input.parent_phone || input.parent_whatsapp,
-        student_whatsapp: input.student_whatsapp || null,
-        student_phone: input.student_phone || input.student_whatsapp || null,
+        student_type: input.student_type,
         community_id: input.community_id, sport_id: input.sport_id, time_slot_id: input.time_slot_id,
         batch_type: input.batch_type, age_group: input.age_group, payment_plan: input.payment_plan,
         fee_amount: input.fee_amount, fee_status: "awaiting_first", next_due_date: input.joining_date,
         joining_date: input.joining_date, batch_time: input.batch_time,
-      }).select().single();
+      } as never).select().single();
       if (error) throw error;
       return data;
     },
