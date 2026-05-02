@@ -170,14 +170,16 @@ export default function Settings() {
 
   const loadTemplates = async () => {
     const { data } = await supabase.from("whatsapp_templates").select("*").order("name");
-    if (data && data.length > 0) {
-      setTemplates(data as WhatsAppTemplate[]);
-    } else {
-      // Seed defaults
-      const inserts = DEFAULT_TEMPLATES.map((t) => supabase.from("whatsapp_templates").insert(t).select());
+    const existing = (data || []) as WhatsAppTemplate[];
+    const existingIds = new Set(existing.map((t) => t.template_id));
+    const missing = DEFAULT_TEMPLATES.filter((t) => !existingIds.has(t.template_id));
+    if (missing.length > 0) {
+      const inserts = missing.map((t) => supabase.from("whatsapp_templates").insert(t).select());
       const results = await Promise.all(inserts);
       const seeded = results.flatMap((r) => (r.data || []) as WhatsAppTemplate[]);
-      setTemplates(seeded.length > 0 ? seeded : (DEFAULT_TEMPLATES.map((t, i) => ({ ...t, id: `local-${i}` })) as WhatsAppTemplate[]));
+      setTemplates([...existing, ...seeded]);
+    } else {
+      setTemplates(existing);
     }
   };
 
