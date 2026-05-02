@@ -122,7 +122,12 @@ export default function StudentDetail() {
       const newAmount = planPrices[selectedPlan];
       const { error } = await supabase
         .from("students")
-        .update({ payment_plan: selectedPlan, fee_amount: newAmount })
+        .update({
+          payment_plan: selectedPlan,
+          fee_amount: newAmount,
+          plan_change_effective_from: student.next_due_date,
+          plan_change_requested_at: new Date().toISOString(),
+        })
         .eq("id", student.id);
       if (error) throw error;
 
@@ -514,32 +519,59 @@ export default function StudentDetail() {
               </div>
             )}
 
-            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-xs space-y-1">
-              <p className="font-medium text-warning">ℹ️ How this works</p>
-              <ul className="text-muted-foreground space-y-0.5 list-disc list-inside">
-                <li>New plan starts from next due date</li>
-                <li>Current period is NOT affected</li>
-                <li>Next payment will be at new rate</li>
-                <li>Parent will be notified via WhatsApp</li>
-              </ul>
-            </div>
+            {selectedPlan && selectedPlan !== student.payment_plan && planPrices && (() => {
+              const planLabel = selectedPlan === "1m" ? "1 Month" : selectedPlan === "3m" ? "3 Months" : "6 Months";
+              const fmt = (d?: string | null) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+              const months = selectedPlan === "1m" ? 1 : selectedPlan === "3m" ? 3 : 6;
+              const newPeriodEnd = student.next_due_date ? (() => {
+                const d = new Date(student.next_due_date + "T00:00:00");
+                d.setMonth(d.getMonth() + months);
+                d.setDate(d.getDate() - 1);
+                return d.toISOString().slice(0, 10);
+              })() : null;
+              return (
+                <>
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2 text-xs">
+                    <p className="font-semibold text-primary">⚡ How plan change works</p>
+                    <ul className="text-muted-foreground space-y-0.5 list-disc list-inside">
+                      <li>Current plan runs until <span className="text-foreground font-medium">{fmt(student.payment_end_date)}</span> — fully honored</li>
+                      <li>New plan ({planLabel}) starts from <span className="text-foreground font-medium">{fmt(student.next_due_date)}</span></li>
+                      <li>Next payment due: <span className="text-foreground font-medium">{fmt(student.next_due_date)}</span> — amount: <span className="text-primary font-semibold">{formatCurrencyFull(planPrices[selectedPlan])}</span></li>
+                      <li>WhatsApp reminder sent 2 days before due date</li>
+                    </ul>
+                  </div>
 
-            {selectedPlan && selectedPlan !== student.payment_plan && planPrices && (
-              <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm">
-                <div>
-                  <p className="text-[10px] text-muted-foreground">Next Due Date</p>
-                  <p className="font-semibold">
-                    {student.next_due_date
-                      ? new Date(student.next_due_date + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground">New Amount Due</p>
-                  <p className="font-semibold text-primary">{formatCurrencyFull(planPrices[selectedPlan])}</p>
-                </div>
-              </div>
-            )}
+                  {/* Visual timeline */}
+                  <div className="rounded-lg border border-border bg-muted/20 p-3">
+                    <div className="flex items-center gap-1 text-[10px] mb-2">
+                      <div className="flex-1 text-center text-muted-foreground">{fmt(student.payment_start_date)}</div>
+                      <div className="flex-[2] text-center text-muted-foreground">{fmt(student.next_due_date)}</div>
+                      <div className="flex-1 text-right text-muted-foreground">{fmt(newPeriodEnd)}</div>
+                    </div>
+                    <div className="flex items-stretch gap-1 h-8">
+                      <div className="flex-1 rounded bg-primary/70 flex items-center justify-center text-[10px] font-semibold text-background">
+                        Current paid
+                      </div>
+                      <div className="flex-[2] rounded border-2 border-dashed border-primary flex items-center justify-center text-[10px] font-semibold text-primary">
+                        New {planLabel}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-center text-primary mt-1">↑ Plan change effective from {fmt(student.next_due_date)}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Next Due Date</p>
+                      <p className="font-semibold">{fmt(student.next_due_date)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">New Amount Due</p>
+                      <p className="font-semibold text-primary">{formatCurrencyFull(planPrices[selectedPlan])}</p>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPlanOpen(false)}>Cancel</Button>

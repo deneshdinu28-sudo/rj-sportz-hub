@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { User, Database, CreditCard, Bell, Shield, Edit2, Save, Loader2, Check, MessageSquare, Eye, X, Upload, Trash2 } from "lucide-react";
+import { User, Database, CreditCard, Bell, Shield, Edit2, Save, Loader2, Check, MessageSquare, Eye, X, Upload, Trash2, Plug } from "lucide-react";
+import IntegrationsTab from "@/components/IntegrationsTab";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCommunities } from "@/hooks/useSupabaseData";
@@ -26,11 +27,46 @@ interface WhatsAppTemplate {
 
 const DEFAULT_TEMPLATES: Omit<WhatsAppTemplate, "id">[] = [
   {
-    template_id: "welcome_student",
-    name: "Welcome Message (New Student)",
-    description: "Sent when a new student is enrolled",
-    template: `🏸 Welcome to RJ Sportz!\n\nDear {parent_name},\n\nYour child has been successfully enrolled!\n\nStudent: {student_name}\nStudent ID: {student_id}\nSport: {sport_name}\nCommunity: {community_name}\nBatch: {batch_type} • {age_group}\n\nMonthly Fee: ₹{monthly_fee}\nNext Due Date: {next_due_date}\n\nWe look forward to seeing {student_name} in class!\n\nRJ Sportz Team`,
-    variables: ["parent_name", "student_name", "student_id", "sport_name", "community_name", "batch_type", "age_group", "monthly_fee", "next_due_date"],
+    template_id: "welcome_parent_young_child",
+    name: "Welcome — Parent (Young Child, age 3–8)",
+    description: "Warm message sent to parent when a young child enrolls",
+    template: `🌟 Welcome to RJ Sportz!\n\nDear {parent_name},\n\nLittle {student_name} has been successfully enrolled and we are so excited to have them!\n\n👦 Student: {student_name} ({student_id})\n🏸 Sport: {sport_name}\n🏘️ Community: {community_name}\n⏰ Batch: {batch_type} • {age_group}\n📅 Joining Date: {joining_date}\n\n💰 Monthly Fee: ₹{monthly_fee}\n📆 First Payment Due: {next_due_date}\n\nOur coaches are specially trained to work with young athletes. Please ensure {student_name} comes with:\n✅ Comfortable sportswear\n✅ Water bottle\n✅ Enthusiasm to learn!\n\nWe look forward to nurturing {student_name}'s sporting journey! 🌱\n\nRJ Sportz Team`,
+    variables: ["parent_name", "student_name", "student_id", "sport_name", "community_name", "batch_type", "age_group", "joining_date", "monthly_fee", "next_due_date"],
+  },
+  {
+    template_id: "welcome_parent_child",
+    name: "Welcome — Parent (Child, age 9–14)",
+    description: "Encouraging message sent to parent when a child enrolls",
+    template: `🏆 Welcome to RJ Sportz!\n\nDear {parent_name},\n\n{student_name} has been successfully enrolled — exciting times ahead!\n\n👤 Student: {student_name} ({student_id})\n🏸 Sport: {sport_name}\n🏘️ Community: {community_name}\n⏰ Batch: {batch_type} • {age_group}\n📅 Joining Date: {joining_date}\n\n💰 Monthly Fee: ₹{monthly_fee}\n📆 First Payment Due: {next_due_date}\n\n{student_name} is in great hands with our experienced coaches. Regular attendance will help them progress faster!\n\nSee you on the court! 🏸\n\nRJ Sportz Team`,
+    variables: ["parent_name", "student_name", "student_id", "sport_name", "community_name", "batch_type", "age_group", "joining_date", "monthly_fee", "next_due_date"],
+  },
+  {
+    template_id: "welcome_parent_teen",
+    name: "Welcome — Parent (Teen, age 15–17)",
+    description: "Motivating message sent to parent when a teen enrolls",
+    template: `🔥 Welcome to RJ Sportz!\n\nDear {parent_name},\n\nGreat news! {student_name} has joined the RJ Sportz family.\n\n👤 Student: {student_name} ({student_id})\n🏸 Sport: {sport_name}\n🏘️ Community: {community_name}\n⏰ Batch: {batch_type} • {age_group}\n📅 Joining Date: {joining_date}\n\n💰 Monthly Fee: ₹{monthly_fee}\n📆 First Payment Due: {next_due_date}\n\nAt this age consistency is key — encourage {student_name} to attend regularly and push their limits!\n\nLet's build champions together! 💪\n\nRJ Sportz Team`,
+    variables: ["parent_name", "student_name", "student_id", "sport_name", "community_name", "batch_type", "age_group", "joining_date", "monthly_fee", "next_due_date"],
+  },
+  {
+    template_id: "welcome_parent_adult",
+    name: "Welcome — Parent/Guardian (Adult, 18+)",
+    description: "Professional message sent to parent/guardian for adult students",
+    template: `🏆 Welcome to RJ Sportz!\n\nDear {parent_name},\n\n{student_name} has been successfully enrolled. We're glad to have them!\n\n👤 Student: {student_name} ({student_id})\n🏸 Sport: {sport_name}\n🏘️ Community: {community_name}\n⏰ Batch: {batch_type} • {age_group}\n📅 Joining Date: {joining_date}\n\n💰 Monthly Fee: ₹{monthly_fee}\n📆 First Payment Due: {next_due_date}\n\nOur coaches will work closely to help achieve their sporting goals.\n\nWelcome aboard! 🎯\n\nRJ Sportz Team`,
+    variables: ["parent_name", "student_name", "student_id", "sport_name", "community_name", "batch_type", "age_group", "joining_date", "monthly_fee", "next_due_date"],
+  },
+  {
+    template_id: "welcome_student_teen",
+    name: "Welcome — Student Direct (Teen, age 15–17)",
+    description: "Hype message sent directly to teen students who provided WhatsApp",
+    template: `🔥 Hey {student_name}! Welcome to RJ Sportz!\n\nYou're officially enrolled and we can't wait to see you in action!\n\n🆔 Your Student ID: {student_id}\n🏸 Sport: {sport_name}\n⏰ Batch: {batch_type} • {age_group}\n📅 First Class: {joining_date}\n\nTrain hard, stay consistent, and let's build something great. See you on the court! 💪\n\n— RJ Sportz Team`,
+    variables: ["student_name", "student_id", "sport_name", "batch_type", "age_group", "joining_date"],
+  },
+  {
+    template_id: "welcome_student_adult",
+    name: "Welcome — Student Direct (Adult, 18+)",
+    description: "Professional message sent directly to adult students who provided WhatsApp",
+    template: `🏆 Welcome to RJ Sportz, {student_name}!\n\nYour enrollment is confirmed. Here are your details:\n\n🆔 Student ID: {student_id}\n🏸 Sport: {sport_name}\n🏘️ Community: {community_name}\n⏰ Batch: {batch_type} • {age_group}\n📅 Start Date: {joining_date}\n\n💰 Fee: ₹{monthly_fee}/month\n📆 First Payment Due: {next_due_date}\n\nUse your Student ID {student_id} for all communications with us.\n\nLet's get started! 🎯\n\n— RJ Sportz Team`,
+    variables: ["student_name", "student_id", "sport_name", "community_name", "batch_type", "age_group", "joining_date", "monthly_fee", "next_due_date"],
   },
   {
     template_id: "payment_reminder",
@@ -267,6 +303,7 @@ export default function Settings() {
           <TabsTrigger value="shortcodes" className="gap-1.5"><Database className="h-3.5 w-3.5" /> Shortcodes</TabsTrigger>
           <TabsTrigger value="notifications" className="gap-1.5"><Bell className="h-3.5 w-3.5" /> Notifications</TabsTrigger>
           <TabsTrigger value="system" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> System</TabsTrigger>
+          <TabsTrigger value="integrations" className="gap-1.5"><Plug className="h-3.5 w-3.5" /> Integrations</TabsTrigger>
         </TabsList>
 
         {/* PROFILE TAB */}
@@ -493,6 +530,11 @@ export default function Settings() {
               ))}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* INTEGRATIONS TAB */}
+        <TabsContent value="integrations" className="mt-4">
+          <IntegrationsTab />
         </TabsContent>
       </Tabs>
 

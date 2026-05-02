@@ -54,6 +54,7 @@ export default function CommunityDetail() {
 
   const [studentForm, setStudentForm] = useState({
     name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
+    student_whatsapp: "", student_phone: "",
     sport_id: "", time_slot_id: "", age_group: "kids", payment_plan: "1m",
     joining_date: new Date().toISOString().slice(0, 10),
   });
@@ -144,6 +145,7 @@ export default function CommunityDetail() {
   const openAddStudent = (sportId?: string) => {
     setStudentForm({
       name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
+      student_whatsapp: "", student_phone: "",
       sport_id: sportId ?? commSports[0]?.id ?? "", time_slot_id: "", age_group: "kids",
       payment_plan: "1m", joining_date: new Date().toISOString().slice(0, 10),
     });
@@ -152,13 +154,16 @@ export default function CommunityDetail() {
 
   const handleSaveStudent = async () => {
     const feeAmount = getFeeAmount();
+    const ageNum = parseInt(studentForm.age) || 10;
     await createStudent.mutateAsync({
       student_id: getStudentId(),
       name: studentForm.name,
-      age: parseInt(studentForm.age) || 10,
+      age: ageNum,
       parent_name: studentForm.parent_name,
       parent_whatsapp: studentForm.parent_whatsapp,
       parent_phone: studentForm.parent_phone,
+      student_whatsapp: ageNum >= 15 ? studentForm.student_whatsapp : "",
+      student_phone: ageNum >= 15 ? (studentForm.student_phone || studentForm.student_whatsapp) : "",
       community_id: id!,
       sport_id: studentForm.sport_id,
       time_slot_id: studentForm.time_slot_id,
@@ -559,6 +564,32 @@ export default function CommunityDetail() {
             }} placeholder="12" min={3} max={60} /></div>
             <div><Label>Parent Name *</Label><Input value={studentForm.parent_name} onChange={(e) => setStudentForm((p) => ({ ...p, parent_name: e.target.value }))} placeholder="Suresh Kumar" /></div>
             <div><Label>WhatsApp Number *</Label><Input value={studentForm.parent_whatsapp} onChange={(e) => setStudentForm((p) => ({ ...p, parent_whatsapp: e.target.value }))} placeholder="9876543210" maxLength={10} /></div>
+            {(parseInt(studentForm.age) || 0) >= 15 && (
+              <div className="rounded-lg border-l-2 border-l-primary border border-border bg-primary/5 p-3 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div>
+                  <p className="text-xs font-semibold text-primary">Student is 15+ — add their direct contact (optional)</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Welcome message will also be sent directly to the student.</p>
+                </div>
+                <div>
+                  <Label className="text-xs flex items-center gap-1"><MessageSquare className="h-3 w-3 text-primary" /> Student WhatsApp</Label>
+                  <Input
+                    value={studentForm.student_whatsapp}
+                    onChange={(e) => setStudentForm((p) => ({ ...p, student_whatsapp: e.target.value.replace(/\D/g, "").slice(0, 10), student_phone: p.student_phone || e.target.value.replace(/\D/g, "").slice(0, 10) }))}
+                    placeholder="9876543210"
+                    maxLength={10}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Student Phone (optional)</Label>
+                  <Input
+                    value={studentForm.student_phone}
+                    onChange={(e) => setStudentForm((p) => ({ ...p, student_phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
+                    placeholder="Defaults to WhatsApp"
+                    maxLength={10}
+                  />
+                </div>
+              </div>
+            )}
             <div><Label>Sport *</Label>
               <Select value={studentForm.sport_id} onValueChange={(v) => setStudentForm((p) => ({ ...p, sport_id: v, time_slot_id: "" }))}>
                 <SelectTrigger><SelectValue placeholder="Select sport" /></SelectTrigger>

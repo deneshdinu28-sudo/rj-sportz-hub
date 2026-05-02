@@ -269,6 +269,39 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_logs: {
+        Row: {
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          job_name: string
+          messages_sent: number | null
+          ran_at: string
+          status: string | null
+          students_affected: number | null
+        }
+        Insert: {
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          job_name: string
+          messages_sent?: number | null
+          ran_at?: string
+          status?: string | null
+          students_affected?: number | null
+        }
+        Update: {
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          job_name?: string
+          messages_sent?: number | null
+          ran_at?: string
+          status?: string | null
+          students_affected?: number | null
+        }
+        Relationships: []
+      }
       global_sports: {
         Row: {
           created_at: string | null
@@ -679,8 +712,12 @@ export type Database = {
           payment_end_date: string | null
           payment_plan: string
           payment_start_date: string | null
+          plan_change_effective_from: string | null
+          plan_change_requested_at: string | null
           sport_id: string
           student_id: string
+          student_phone: string | null
+          student_whatsapp: string | null
           time_slot_id: string | null
           updated_at: string
         }
@@ -708,8 +745,12 @@ export type Database = {
           payment_end_date?: string | null
           payment_plan?: string
           payment_start_date?: string | null
+          plan_change_effective_from?: string | null
+          plan_change_requested_at?: string | null
           sport_id: string
           student_id: string
+          student_phone?: string | null
+          student_whatsapp?: string | null
           time_slot_id?: string | null
           updated_at?: string
         }
@@ -737,8 +778,12 @@ export type Database = {
           payment_end_date?: string | null
           payment_plan?: string
           payment_start_date?: string | null
+          plan_change_effective_from?: string | null
+          plan_change_requested_at?: string | null
           sport_id?: string
           student_id?: string
+          student_phone?: string | null
+          student_whatsapp?: string | null
           time_slot_id?: string | null
           updated_at?: string
         }
@@ -765,6 +810,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_settings: {
+        Row: {
+          created_at: string
+          google_vision_key: string | null
+          id: string
+          updated_at: string
+          wati_server_url: string | null
+          wati_token: string | null
+          wati_webhook_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          google_vision_key?: string | null
+          id?: string
+          updated_at?: string
+          wati_server_url?: string | null
+          wati_token?: string | null
+          wati_webhook_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          google_vision_key?: string | null
+          id?: string
+          updated_at?: string
+          wati_server_url?: string | null
+          wati_token?: string | null
+          wati_webhook_url?: string | null
+        }
+        Relationships: []
       }
       time_slots: {
         Row: {
