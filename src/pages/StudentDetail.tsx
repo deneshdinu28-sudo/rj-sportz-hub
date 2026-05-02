@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MessageSquare, Loader2, TrendingUp, Calendar, ChevronLeft, ChevronRight, CalendarClock, Send } from "lucide-react";
+import { ArrowLeft, MessageSquare, Loader2, TrendingUp, Calendar, ChevronLeft, ChevronRight, CalendarClock, Send, Repeat, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,11 @@ export default function StudentDetail() {
   const [extendDate, setExtendDate] = useState("");
   const [extendMessage, setExtendMessage] = useState("");
   const [extending, setExtending] = useState(false);
+
+  // Change Plan modal
+  const [planOpen, setPlanOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<"1m" | "3m" | "6m" | "">("");
+  const [changingPlan, setChangingPlan] = useState(false);
 
   const attendanceStats = useMemo(() => {
     const startOfMonth = new Date(attendanceMonth.getFullYear(), attendanceMonth.getMonth(), 1).toISOString().slice(0, 10);
