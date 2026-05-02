@@ -124,6 +124,7 @@ export default function Communities() {
         sportIcon: sp.sportIcon,
         coach_name: sp.coach_name,
         coach_phone: sp.coach_phone,
+        coach_ids: sp.coach_ids,
         standard_1month: Number(sp.standard_1month),
         standard_3months: Number(sp.standard_3months),
         standard_6months: Number(sp.standard_6months),
