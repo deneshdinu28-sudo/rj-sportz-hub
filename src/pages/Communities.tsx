@@ -46,7 +46,7 @@ export default function Communities() {
   const [sportPricings, setSportPricings] = useState<SportPricingEntry[]>([]);
   const [addSportPricingOpen, setAddSportPricingOpen] = useState(false);
   const [newSportPricing, setNewSportPricing] = useState<SportPricingEntry>({
-    sportName: "", sportIcon: "", coach_name: "", coach_phone: "",
+    sportName: "", sportIcon: "", coach_name: "", coach_phone: "", coach_ids: [],
     standard_1month: "3000", standard_3months: "8500", standard_6months: "16000",
     premium_1month: "4500", premium_3months: "12500", premium_6months: "24000",
   });
@@ -100,7 +100,7 @@ export default function Communities() {
     setAddSportPricingOpen(false);
     setIsCustomSport(false);
     setNewSportPricing({
-      sportName: "", sportIcon: "", coach_name: "", coach_phone: "",
+      sportName: "", sportIcon: "", coach_name: "", coach_phone: "", coach_ids: [],
       standard_1month: "3000", standard_3months: "8500", standard_6months: "16000",
       premium_1month: "4500", premium_3months: "12500", premium_6months: "24000",
     });
