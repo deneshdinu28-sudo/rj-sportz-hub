@@ -54,7 +54,7 @@ export default function CommunityDetail() {
 
   const [studentForm, setStudentForm] = useState({
     name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
-    student_whatsapp: "", student_phone: "",
+    student_type: "kid" as "kid" | "adult",
     sport_id: "", time_slot_id: "", age_group: "kids", payment_plan: "1m",
     joining_date: new Date().toISOString().slice(0, 10),
   });
@@ -145,7 +145,7 @@ export default function CommunityDetail() {
   const openAddStudent = (sportId?: string) => {
     setStudentForm({
       name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
-      student_whatsapp: "", student_phone: "",
+      student_type: "kid",
       sport_id: sportId ?? commSports[0]?.id ?? "", time_slot_id: "", age_group: "kids",
       payment_plan: "1m", joining_date: new Date().toISOString().slice(0, 10),
     });
@@ -162,8 +162,7 @@ export default function CommunityDetail() {
       parent_name: studentForm.parent_name,
       parent_whatsapp: studentForm.parent_whatsapp,
       parent_phone: studentForm.parent_phone,
-      student_whatsapp: ageNum >= 15 ? studentForm.student_whatsapp : "",
-      student_phone: ageNum >= 15 ? (studentForm.student_phone || studentForm.student_whatsapp) : "",
+      student_type: studentForm.student_type,
       community_id: id!,
       sport_id: studentForm.sport_id,
       time_slot_id: studentForm.time_slot_id,
