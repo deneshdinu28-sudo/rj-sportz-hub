@@ -282,7 +282,7 @@ export default function Communities() {
                   <h4 className="font-bold">{sp.sportIcon} {sp.sportName}</h4>
                   <Button variant="ghost" size="sm" onClick={() => handleRemoveSportPricing(idx)} className="text-destructive h-7">×</Button>
                 </div>
-                <p className="text-xs text-muted-foreground">Coach: {sp.coach_name} • {sp.coach_phone}</p>
+                <p className="text-xs text-muted-foreground">Coach: {sp.coach_name || "—"}{sp.coach_phone ? ` • ${sp.coach_phone}` : ""}{sp.coach_ids.length > 0 ? ` (${sp.coach_ids.length} assigned)` : ""}</p>
                 <div className="text-sm text-muted-foreground space-y-1 mt-1">
                   <p>Standard: 1M ₹{sp.standard_1month} | 3M ₹{sp.standard_3months} | 6M ₹{sp.standard_6months}</p>
                   <p>Premium: 1M ₹{sp.premium_1month} | 3M ₹{sp.premium_3months} | 6M ₹{sp.premium_6months}</p>
