@@ -36,6 +36,7 @@ export default function Communities() {
   const { data: globalSports = [] } = useGlobalSports();
   const createCommunity = useCreateCommunity();
   const deleteCommunityMut = useDeleteCommunity();
+  const { data: coachesForSport = [], isLoading: coachesLoading } = useCoaches(newSportPricing?.sportName || undefined);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
