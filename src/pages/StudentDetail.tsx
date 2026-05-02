@@ -212,7 +212,15 @@ export default function StudentDetail() {
             <Card>
               <CardHeader><CardTitle className="text-sm">Payment Info</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span>{student.batch_type} • {student.payment_plan === "1m" ? "1 Month" : student.payment_plan === "3m" ? "3 Months" : "6 Months"}</span></div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Plan</span>
+                  <div className="flex items-center gap-2">
+                    <span>{student.batch_type} • {student.payment_plan === "1m" ? "1 Month" : student.payment_plan === "3m" ? "3 Months" : "6 Months"}</span>
+                    <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2 border-primary/40 text-primary hover:bg-primary/10" onClick={() => { setSelectedPlan(""); setPlanOpen(true); }}>
+                      <Repeat className="h-3 w-3" /> Change
+                    </Button>
+                  </div>
+                </div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-semibold">{formatCurrencyFull(Number(student.fee_amount))}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Period</span><span>{student.payment_start_date} → {student.payment_end_date}</span></div>
                 {student.next_due_date && <div className="flex justify-between"><span className="text-muted-foreground">Next Due</span><span className="text-warning">{student.next_due_date}</span></div>}
