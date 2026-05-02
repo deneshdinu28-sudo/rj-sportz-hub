@@ -311,6 +311,17 @@ export default function CoachCommunityDetail() {
         <DialogContent className="max-w-md max-h-[90vh] overflow-auto">
           <DialogHeader><DialogTitle>Add New Student</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            <div>
+              <Label>Student Type *</Label>
+              <RadioGroup
+                value={form.student_type}
+                onValueChange={(v) => setForm((p) => ({ ...p, student_type: v as "kid" | "adult" }))}
+                className="flex gap-4 mt-1"
+              >
+                <div className="flex items-center gap-2"><RadioGroupItem value="kid" id="cst-kid" /><Label htmlFor="cst-kid">👦 Kid</Label></div>
+                <div className="flex items-center gap-2"><RadioGroupItem value="adult" id="cst-adult" /><Label htmlFor="cst-adult">👤 Adult</Label></div>
+              </RadioGroup>
+            </div>
             <div><Label>Student Name *</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Rahul Kumar" /></div>
             <div><Label>Age *</Label><Input type="number" value={form.age} onChange={e => {
               const age = parseInt(e.target.value) || 0;
