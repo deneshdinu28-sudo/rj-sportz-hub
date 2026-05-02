@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MessageSquare, Loader2, TrendingUp, Calendar, ChevronLeft, ChevronRight, CalendarClock, Send } from "lucide-react";
+import { ArrowLeft, MessageSquare, Loader2, TrendingUp, Calendar, ChevronLeft, ChevronRight, CalendarClock, Send, Repeat, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,11 @@ export default function StudentDetail() {
   const [extendDate, setExtendDate] = useState("");
   const [extendMessage, setExtendMessage] = useState("");
   const [extending, setExtending] = useState(false);
+
+  // Change Plan modal
+  const [planOpen, setPlanOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<"1m" | "3m" | "6m" | "">("");
+  const [changingPlan, setChangingPlan] = useState(false);
 
   const attendanceStats = useMemo(() => {
     const startOfMonth = new Date(attendanceMonth.getFullYear(), attendanceMonth.getMonth(), 1).toISOString().slice(0, 10);
@@ -94,6 +99,54 @@ export default function StudentDetail() {
       toast({ title: "Failed to extend due date", variant: "destructive" });
     } finally {
       setExtending(false);
+    }
+  };
+
+  // Plan pricing helpers (uses sport_pricing for student's community + sport)
+  const planPrices = useMemo(() => {
+    if (!student) return null;
+    const p = allPricing.find((pp) => pp.sport_id === student.sport_id && pp.community_id === student.community_id);
+    if (!p) return null;
+    const tier = student.batch_type === "premium" ? "premium" : "standard";
+    return {
+      "1m": Number(tier === "premium" ? p.premium_1month : p.standard_1month),
+      "3m": Number(tier === "premium" ? p.premium_3months : p.standard_3months),
+      "6m": Number(tier === "premium" ? p.premium_6months : p.standard_6months),
+    };
+  }, [student, allPricing]);
+
+  const handleChangePlan = async () => {
+    if (!student || !selectedPlan || selectedPlan === student.payment_plan || !planPrices) return;
+    setChangingPlan(true);
+    try {
+      const newAmount = planPrices[selectedPlan];
+      const { error } = await supabase
+        .from("students")
+        .update({ payment_plan: selectedPlan, fee_amount: newAmount })
+        .eq("id", student.id);
+      if (error) throw error;
+
+      await supabase.from("plan_change_logs").insert({
+        student_id: student.id,
+        student_code: student.student_id,
+        previous_plan: student.payment_plan,
+        new_plan: selectedPlan,
+        effective_from: student.next_due_date,
+        note: "Plan changed by admin",
+      });
+
+      const niceDate = student.next_due_date
+        ? new Date(student.next_due_date + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+        : "next cycle";
+      toast({ title: "Plan updated!", description: `Takes effect from ${niceDate}` });
+      setPlanOpen(false);
+      setSelectedPlan("");
+      refetch();
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Failed to change plan", variant: "destructive" });
+    } finally {
+      setChangingPlan(false);
     }
   };
 
@@ -207,7 +260,15 @@ export default function StudentDetail() {
             <Card>
               <CardHeader><CardTitle className="text-sm">Payment Info</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span>{student.batch_type} • {student.payment_plan === "1m" ? "1 Month" : student.payment_plan === "3m" ? "3 Months" : "6 Months"}</span></div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Plan</span>
+                  <div className="flex items-center gap-2">
+                    <span>{student.batch_type} • {student.payment_plan === "1m" ? "1 Month" : student.payment_plan === "3m" ? "3 Months" : "6 Months"}</span>
+                    <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2 border-primary/40 text-primary hover:bg-primary/10" onClick={() => { setSelectedPlan(""); setPlanOpen(true); }}>
+                      <Repeat className="h-3 w-3" /> Change
+                    </Button>
+                  </div>
+                </div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-semibold">{formatCurrencyFull(Number(student.fee_amount))}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Period</span><span>{student.payment_start_date} → {student.payment_end_date}</span></div>
                 {student.next_due_date && <div className="flex justify-between"><span className="text-muted-foreground">Next Due</span><span className="text-warning">{student.next_due_date}</span></div>}
@@ -392,6 +453,101 @@ export default function StudentDetail() {
             >
               {extending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Extend & Notify Parent
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Plan Dialog */}
+      <Dialog open={planOpen} onOpenChange={setPlanOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Change Payment Plan</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
+              <span className="text-2xl">{sport?.icon}</span>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">{student.name}</p>
+                <p className="text-xs text-muted-foreground">{student.student_id} • {sport?.name} • {student.batch_type}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-muted-foreground">Current</p>
+                <p className="text-sm font-semibold">{student.payment_plan === "1m" ? "1M" : student.payment_plan === "3m" ? "3M" : "6M"} • {formatCurrencyFull(Number(student.fee_amount))}</p>
+              </div>
+            </div>
+
+            {!planPrices ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Pricing not configured for this sport.</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {(["1m", "3m", "6m"] as const).map((p) => {
+                  const isCurrent = p === student.payment_plan;
+                  const isSelected = p === selectedPlan;
+                  const price = planPrices[p];
+                  const months = p === "1m" ? 1 : p === "3m" ? 3 : 6;
+                  const savings = months > 1 ? planPrices["1m"] * months - price : 0;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      disabled={isCurrent}
+                      onClick={() => setSelectedPlan(p)}
+                      className={`relative p-3 rounded-lg border-2 text-left transition-all duration-200 ${
+                        isCurrent
+                          ? "border-border bg-muted/30 opacity-60 cursor-not-allowed"
+                          : isSelected
+                          ? "border-primary bg-primary/10 shadow-[0_0_12px_hsl(var(--primary)/0.25)]"
+                          : "border-border hover:border-primary/50 hover:shadow-[0_0_12px_hsl(var(--primary)/0.15)]"
+                      }`}
+                    >
+                      {isCurrent && <span className="absolute -top-2 right-2 text-[9px] px-1.5 py-0.5 rounded-full bg-muted border border-border">current</span>}
+                      {isSelected && !isCurrent && <Check className="absolute top-2 right-2 h-3.5 w-3.5 text-primary" />}
+                      <p className="text-xs text-muted-foreground">{p === "1m" ? "1 Month" : p === "3m" ? "3 Months" : "6 Months"}</p>
+                      <p className="font-bold text-sm mt-1">{formatCurrencyFull(price)}</p>
+                      {savings > 0 && (
+                        <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded-full bg-success/20 text-success font-medium">
+                          Save ₹{savings.toLocaleString("en-IN")}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-xs space-y-1">
+              <p className="font-medium text-warning">ℹ️ How this works</p>
+              <ul className="text-muted-foreground space-y-0.5 list-disc list-inside">
+                <li>New plan starts from next due date</li>
+                <li>Current period is NOT affected</li>
+                <li>Next payment will be at new rate</li>
+                <li>Parent will be notified via WhatsApp</li>
+              </ul>
+            </div>
+
+            {selectedPlan && selectedPlan !== student.payment_plan && planPrices && (
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-sm">
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Next Due Date</p>
+                  <p className="font-semibold">
+                    {student.next_due_date
+                      ? new Date(student.next_due_date + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">New Amount Due</p>
+                  <p className="font-semibold text-primary">{formatCurrencyFull(planPrices[selectedPlan])}</p>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPlanOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleChangePlan}
+              disabled={changingPlan || !selectedPlan || selectedPlan === student.payment_plan}
+            >
+              {changingPlan ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Updating…</> : "Confirm Plan Change"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -433,6 +433,42 @@ export type Database = {
           },
         ]
       }
+      plan_change_logs: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          effective_from: string | null
+          id: string
+          new_plan: string | null
+          note: string | null
+          previous_plan: string | null
+          student_code: string | null
+          student_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          effective_from?: string | null
+          id?: string
+          new_plan?: string | null
+          note?: string | null
+          previous_plan?: string | null
+          student_code?: string | null
+          student_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          effective_from?: string | null
+          id?: string
+          new_plan?: string | null
+          note?: string | null
+          previous_plan?: string | null
+          student_code?: string | null
+          student_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           coach_id: string | null

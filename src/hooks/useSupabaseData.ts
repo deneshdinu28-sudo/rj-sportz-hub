@@ -36,6 +36,7 @@ export function useCreateCommunity() {
       name: string; short_code: string; address: string; contact_person: string; contact_phone: string;
       sports: Array<{
         sportName: string; sportIcon: string; coach_name: string; coach_phone: string;
+        coach_ids?: string[];
         standard_1month: number; standard_3months: number; standard_6months: number;
         premium_1month: number; premium_3months: number; premium_6months: number;
       }>;
@@ -57,6 +58,14 @@ export function useCreateCommunity() {
           premium_1month: s.premium_1month, premium_3months: s.premium_3months, premium_6months: s.premium_6months,
         });
         if (pErr) throw pErr;
+        // Create coach_assignments for each selected coach
+        if (s.coach_ids && s.coach_ids.length > 0) {
+          const assignments = s.coach_ids.map((coach_id) => ({
+            coach_id, community_id: community.id, sport_id: sport.id,
+          }));
+          const { error: aErr } = await supabase.from("coach_assignments").insert(assignments);
+          if (aErr) throw aErr;
+        }
       }
       return community;
     },
