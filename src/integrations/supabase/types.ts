@@ -717,6 +717,7 @@ export type Database = {
           sport_id: string
           student_id: string
           student_phone: string | null
+          student_type: string | null
           student_whatsapp: string | null
           time_slot_id: string | null
           updated_at: string
@@ -750,6 +751,7 @@ export type Database = {
           sport_id: string
           student_id: string
           student_phone?: string | null
+          student_type?: string | null
           student_whatsapp?: string | null
           time_slot_id?: string | null
           updated_at?: string
@@ -783,6 +785,7 @@ export type Database = {
           sport_id?: string
           student_id?: string
           student_phone?: string | null
+          student_type?: string | null
           student_whatsapp?: string | null
           time_slot_id?: string | null
           updated_at?: string
