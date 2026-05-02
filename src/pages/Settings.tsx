@@ -303,6 +303,7 @@ export default function Settings() {
           <TabsTrigger value="shortcodes" className="gap-1.5"><Database className="h-3.5 w-3.5" /> Shortcodes</TabsTrigger>
           <TabsTrigger value="notifications" className="gap-1.5"><Bell className="h-3.5 w-3.5" /> Notifications</TabsTrigger>
           <TabsTrigger value="system" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> System</TabsTrigger>
+          <TabsTrigger value="integrations" className="gap-1.5"><Plug className="h-3.5 w-3.5" /> Integrations</TabsTrigger>
         </TabsList>
 
         {/* PROFILE TAB */}
