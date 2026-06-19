@@ -77,6 +77,8 @@ export default function CommunityDetail() {
   });
   // per-sport pricing config used in Edit Community
   const [editSportConfigs, setEditSportConfigs] = useState<Record<string, PricingConfig>>({});
+  const [editSportId, setEditSportId] = useState<string | null>(null);
+  const [editSportCfg, setEditSportCfg] = useState<PricingConfig>(defaultPricingConfig());
   const { data: commPacks = [] } = useSessionPacks(id);
   const updateSportFull = useUpdateSportFull();
 
@@ -291,9 +293,6 @@ export default function CommunityDetail() {
     setEditCommunityOpen(false);
   };
 
-  // Per-sport quick edit
-  const [editSportId, setEditSportId] = useState<string | null>(null);
-  const [editSportCfg, setEditSportCfg] = useState<PricingConfig>(defaultPricingConfig());
   const openEditSport = (sport: any) => {
     setEditSportCfg(buildPricingConfig(sport));
     setEditSportId(sport.id);
