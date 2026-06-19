@@ -21,8 +21,9 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   useCommunity, useSports, useStudents, useSportPricing, useTimeSlots, useGlobalSports,
   useCreateSport, useCreateTimeSlot, useCreateStudent, useUpdateCommunity, useUpdateSportPricing,
-  useCreateCoachAssignment, formatCurrencyFull, formatCurrency, formatTime,
+  useCreateCoachAssignment, useSessionPacks, useUpdateSportFull, formatCurrencyFull, formatCurrency, formatTime,
 } from "@/hooks/useSupabaseData";
+import SportPricingFields, { defaultPricingConfig, type PricingConfig } from "@/components/SportPricingFields";
 
 export default function CommunityDetail() {
   const { id } = useParams();
@@ -61,8 +62,7 @@ export default function CommunityDetail() {
 
   const [sportForm, setSportForm] = useState({
     sportName: "", sportIcon: "", coach_id: "", coach_name: "", coach_phone: "",
-    standard_1month: "3000", standard_3months: "8500", standard_6months: "16000",
-    premium_1month: "4500", premium_3months: "12500", premium_6months: "24000",
+    pricing: defaultPricingConfig(),
   });
 
   const [availableCoaches, setAvailableCoaches] = useState<Array<{ id: string; coach_id: string; name: string; phone: string | null; sport_name: string }>>([]);
@@ -75,10 +75,10 @@ export default function CommunityDetail() {
   const [editForm, setEditForm] = useState({
     name: "", short_code: "", address: "", contact_person: "", contact_phone: "",
   });
-  const [editPricingForms, setEditPricingForms] = useState<Record<string, {
-    standard_1month: string; standard_3months: string; standard_6months: string;
-    premium_1month: string; premium_3months: string; premium_6months: string;
-  }>>({});
+  // per-sport pricing config used in Edit Community
+  const [editSportConfigs, setEditSportConfigs] = useState<Record<string, PricingConfig>>({});
+  const { data: commPacks = [] } = useSessionPacks(id);
+  const updateSportFull = useUpdateSportFull();
 
   const selectedSport = commSports.find((s) => s.id === studentForm.sport_id);
   const studentSlots = useMemo(() => {
@@ -194,20 +194,34 @@ export default function CommunityDetail() {
       }, { onConflict: "sport_name" });
     }
 
+    const p = sportForm.pricing;
     const sport = await createSport.mutateAsync({
       name: sportForm.sportName,
       icon: sportForm.sportIcon,
       community_id: id!,
       coach_name: sportForm.coach_name,
       coach_phone: sportForm.coach_phone,
-      standard_1month: Number(sportForm.standard_1month),
-      standard_3months: Number(sportForm.standard_3months),
-      standard_6months: Number(sportForm.standard_6months),
-      premium_1month: Number(sportForm.premium_1month),
-      premium_3months: Number(sportForm.premium_3months),
-      premium_6months: Number(sportForm.premium_6months),
+      pricing_type: p.pricing_type,
+      renewal_trigger: p.pricing_type === "custom_monthly" ? "session_based" : p.renewal_trigger,
+      standard_1month: Number(p.standard_1month) || 0,
+      standard_3months: Number(p.standard_3months) || 0,
+      standard_6months: Number(p.standard_6months) || 0,
+      premium_1month: Number(p.premium_1month) || 0,
+      premium_3months: Number(p.premium_3months) || 0,
+      premium_6months: Number(p.premium_6months) || 0,
+      sessions_per_month: p.pricing_type === "duration_based" && p.renewal_trigger === "session_based" ? Number(p.sessions_per_month) || null : null,
+      custom_monthly_price: p.pricing_type === "custom_monthly" ? Number(p.custom_monthly_price) || null : null,
+      custom_monthly_sessions: p.pricing_type === "custom_monthly" ? Number(p.custom_monthly_sessions) || null : null,
+      packs: p.pricing_type === "session_pack"
+        ? p.packs.filter((pk) => pk.pack_name && pk.session_count).map((pk) => ({
+            pack_name: pk.pack_name,
+            session_count: Number(pk.session_count) || 0,
+            standard_price: Number(pk.standard_price) || 0,
+            premium_price: pk.premium_price ? Number(pk.premium_price) : null,
+          }))
+        : undefined,
     });
-    
+
     // Create coach assignment if coach was selected
     if (sportForm.coach_id && sport?.id) {
       await createCoachAssignment.mutateAsync({
@@ -216,7 +230,7 @@ export default function CommunityDetail() {
         sport_id: sport.id,
       });
     }
-    
+
     setAddSportOpen(false);
   };
 
@@ -242,18 +256,37 @@ export default function CommunityDetail() {
       contact_person: community.contact_person,
       contact_phone: community.contact_phone,
     });
-    const pricingMap: typeof editPricingForms = {};
-    commPricing.forEach((p) => {
-      pricingMap[p.id] = {
-        standard_1month: String(p.standard_1month),
-        standard_3months: String(p.standard_3months),
-        standard_6months: String(p.standard_6months),
-        premium_1month: String(p.premium_1month),
-        premium_3months: String(p.premium_3months),
-        premium_6months: String(p.premium_6months),
+    // Build per-sport pricing config combining sport row + sport_pricing + session packs
+    const configs: Record<string, PricingConfig> = {};
+    commSports.forEach((sport: any) => {
+      const pr = commPricing.find((p) => p.sport_id === sport.id);
+      const sportPacks = commPacks.filter((pk: any) => pk.sport_id === sport.id);
+      const def = defaultPricingConfig();
+      configs[sport.id] = {
+        ...def,
+        pricing_type: (sport.pricing_type as any) ?? "duration_based",
+        renewal_trigger: (sport.renewal_trigger as any) ?? "date_based",
+        standard_1month: String(pr?.standard_1month ?? def.standard_1month),
+        standard_3months: String(pr?.standard_3months ?? def.standard_3months),
+        standard_6months: String(pr?.standard_6months ?? def.standard_6months),
+        premium_1month: String(pr?.premium_1month ?? def.premium_1month),
+        premium_3months: String(pr?.premium_3months ?? def.premium_3months),
+        premium_6months: String(pr?.premium_6months ?? def.premium_6months),
+        sessions_per_month: sport.sessions_per_month != null ? String(sport.sessions_per_month) : def.sessions_per_month,
+        custom_monthly_price: sport.custom_monthly_price != null ? String(sport.custom_monthly_price) : def.custom_monthly_price,
+        custom_monthly_sessions: sport.custom_monthly_sessions != null ? String(sport.custom_monthly_sessions) : def.custom_monthly_sessions,
+        packs: sportPacks.length > 0
+          ? sportPacks.map((pk: any) => ({
+              pack_name: pk.pack_name,
+              session_count: String(pk.session_count),
+              standard_price: String(pk.standard_price),
+              premium_price: pk.premium_price != null ? String(pk.premium_price) : "",
+            }))
+          : def.packs,
+        renewal_days: def.renewal_days,
       };
     });
-    setEditPricingForms(pricingMap);
+    setEditSportConfigs(configs);
     setEditCommunityOpen(true);
   };
 
@@ -266,17 +299,34 @@ export default function CommunityDetail() {
       contact_person: editForm.contact_person,
       contact_phone: editForm.contact_phone,
     });
-    // Update pricing for each sport
-    for (const [pricingId, values] of Object.entries(editPricingForms)) {
-      await updateSportPricing.mutateAsync({
-        id: pricingId,
+    // Update each sport
+    for (const sport of commSports) {
+      const cfg = editSportConfigs[sport.id];
+      if (!cfg) continue;
+      const pr = commPricing.find((p) => p.sport_id === sport.id);
+      await updateSportFull.mutateAsync({
+        sport_id: sport.id,
         community_id: id!,
-        standard_1month: Number(values.standard_1month),
-        standard_3months: Number(values.standard_3months),
-        standard_6months: Number(values.standard_6months),
-        premium_1month: Number(values.premium_1month),
-        premium_3months: Number(values.premium_3months),
-        premium_6months: Number(values.premium_6months),
+        pricing_id: pr?.id ?? null,
+        pricing_type: cfg.pricing_type,
+        renewal_trigger: cfg.pricing_type === "custom_monthly" ? "session_based" : cfg.renewal_trigger,
+        standard_1month: Number(cfg.standard_1month) || 0,
+        standard_3months: Number(cfg.standard_3months) || 0,
+        standard_6months: Number(cfg.standard_6months) || 0,
+        premium_1month: Number(cfg.premium_1month) || 0,
+        premium_3months: Number(cfg.premium_3months) || 0,
+        premium_6months: Number(cfg.premium_6months) || 0,
+        sessions_per_month: cfg.pricing_type === "duration_based" && cfg.renewal_trigger === "session_based" ? Number(cfg.sessions_per_month) || null : null,
+        custom_monthly_price: cfg.pricing_type === "custom_monthly" ? Number(cfg.custom_monthly_price) || null : null,
+        custom_monthly_sessions: cfg.pricing_type === "custom_monthly" ? Number(cfg.custom_monthly_sessions) || null : null,
+        packs: cfg.pricing_type === "session_pack"
+          ? cfg.packs.filter((p) => p.pack_name && p.session_count).map((p) => ({
+              pack_name: p.pack_name,
+              session_count: Number(p.session_count) || 0,
+              standard_price: Number(p.standard_price) || 0,
+              premium_price: p.premium_price ? Number(p.premium_price) : null,
+            }))
+          : undefined,
       });
     }
     setEditCommunityOpen(false);
@@ -376,7 +426,7 @@ export default function CommunityDetail() {
             </Select>
             <Button onClick={() => openAddStudent()} className="gap-1"><Plus className="h-4 w-4" /> Add Student</Button>
             <Button variant="outline" onClick={() => {
-              setSportForm({ sportName: "", sportIcon: "", coach_id: "", coach_name: "", coach_phone: "", standard_1month: "3000", standard_3months: "8500", standard_6months: "16000", premium_1month: "4500", premium_3months: "12500", premium_6months: "24000" });
+              setSportForm({ sportName: "", sportIcon: "", coach_id: "", coach_name: "", coach_phone: "", pricing: defaultPricingConfig() });
               setAvailableCoaches([]);
               setAddSportOpen(true);
             }} className="gap-1"><Plus className="h-4 w-4" /> Add Sport</Button>
@@ -510,32 +560,19 @@ export default function CommunityDetail() {
             <div><Label>Contact Phone</Label><Input value={editForm.contact_phone} onChange={(e) => setEditForm((p) => ({ ...p, contact_phone: e.target.value }))} /></div>
 
             {/* Sport Pricing */}
-            {commPricing.length > 0 && (
+            {commSports.length > 0 && (
               <div className="border-t border-border pt-4 space-y-4">
                 <h3 className="font-bold">Sports Pricing</h3>
-                {commPricing.map((pricing) => {
-                  const sport = commSports.find((s) => s.id === pricing.sport_id);
-                  const form = editPricingForms[pricing.id];
-                  if (!form) return null;
+                {commSports.map((sport: any) => {
+                  const cfg = editSportConfigs[sport.id];
+                  if (!cfg) return null;
                   return (
-                    <div key={pricing.id} className="p-4 rounded-lg bg-muted/30 border border-border space-y-3">
-                      <h4 className="font-semibold">{sport?.icon} {sport?.name}</h4>
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Standard Batch</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div><Label className="text-xs">1M</Label><Input type="number" value={form.standard_1month} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], standard_1month: e.target.value } }))} /></div>
-                          <div><Label className="text-xs">3M</Label><Input type="number" value={form.standard_3months} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], standard_3months: e.target.value } }))} /></div>
-                          <div><Label className="text-xs">6M</Label><Input type="number" value={form.standard_6months} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], standard_6months: e.target.value } }))} /></div>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Premium Batch</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div><Label className="text-xs">1M</Label><Input type="number" value={form.premium_1month} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], premium_1month: e.target.value } }))} /></div>
-                          <div><Label className="text-xs">3M</Label><Input type="number" value={form.premium_3months} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], premium_3months: e.target.value } }))} /></div>
-                          <div><Label className="text-xs">6M</Label><Input type="number" value={form.premium_6months} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], premium_6months: e.target.value } }))} /></div>
-                        </div>
-                      </div>
+                    <div key={sport.id} className="p-4 rounded-lg bg-muted/30 border border-border space-y-3">
+                      <h4 className="font-semibold">{sport.icon} {sport.name}</h4>
+                      <SportPricingFields
+                        value={cfg}
+                        onChange={(next) => setEditSportConfigs((prev) => ({ ...prev, [sport.id]: next }))}
+                      />
                     </div>
                   );
                 })}
@@ -776,20 +813,10 @@ export default function CommunityDetail() {
             )}
 
             <div className="border-t border-border pt-3">
-              <p className="text-sm font-semibold mb-3">STANDARD BATCH PRICING</p>
-              <div className="grid grid-cols-3 gap-2">
-                <div><Label className="text-xs">1 Month</Label><Input type="number" value={sportForm.standard_1month} onChange={(e) => setSportForm((p) => ({ ...p, standard_1month: e.target.value }))} /></div>
-                <div><Label className="text-xs">3 Months</Label><Input type="number" value={sportForm.standard_3months} onChange={(e) => setSportForm((p) => ({ ...p, standard_3months: e.target.value }))} /></div>
-                <div><Label className="text-xs">6 Months</Label><Input type="number" value={sportForm.standard_6months} onChange={(e) => setSportForm((p) => ({ ...p, standard_6months: e.target.value }))} /></div>
-              </div>
-            </div>
-            <div className="border-t border-border pt-3">
-              <p className="text-sm font-semibold mb-3">PREMIUM BATCH PRICING</p>
-              <div className="grid grid-cols-3 gap-2">
-                <div><Label className="text-xs">1 Month</Label><Input type="number" value={sportForm.premium_1month} onChange={(e) => setSportForm((p) => ({ ...p, premium_1month: e.target.value }))} /></div>
-                <div><Label className="text-xs">3 Months</Label><Input type="number" value={sportForm.premium_3months} onChange={(e) => setSportForm((p) => ({ ...p, premium_3months: e.target.value }))} /></div>
-                <div><Label className="text-xs">6 Months</Label><Input type="number" value={sportForm.premium_6months} onChange={(e) => setSportForm((p) => ({ ...p, premium_6months: e.target.value }))} /></div>
-              </div>
+              <SportPricingFields
+                value={sportForm.pricing}
+                onChange={(pricing) => setSportForm((p) => ({ ...p, pricing }))}
+              />
             </div>
           </div>
           <DialogFooter>
