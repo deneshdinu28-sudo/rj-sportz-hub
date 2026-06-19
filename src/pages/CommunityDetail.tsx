@@ -529,7 +529,24 @@ export default function CommunityDetail() {
         </div>
       </div>
 
+      {/* Edit Sport (per-sport pricing) Modal */}
+      <Dialog open={!!editSportId} onOpenChange={(v) => { if (!v) setEditSportId(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Sport Pricing — {commSports.find((s) => s.id === editSportId)?.icon} {commSports.find((s) => s.id === editSportId)?.name}</DialogTitle>
+          </DialogHeader>
+          <SportPricingFields value={editSportCfg} onChange={setEditSportCfg} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditSportId(null)}>Cancel</Button>
+            <Button onClick={handleSaveEditSport} disabled={updateSportFull.isPending}>
+              {updateSportFull.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...</> : "Save Pricing →"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Community Modal */}
+
       <Dialog open={editCommunityOpen} onOpenChange={setEditCommunityOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
           <DialogHeader><DialogTitle>Edit Community — {community.name}</DialogTitle></DialogHeader>
