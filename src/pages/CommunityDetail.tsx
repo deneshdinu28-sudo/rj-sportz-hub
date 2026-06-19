@@ -426,7 +426,7 @@ export default function CommunityDetail() {
             </Select>
             <Button onClick={() => openAddStudent()} className="gap-1"><Plus className="h-4 w-4" /> Add Student</Button>
             <Button variant="outline" onClick={() => {
-              setSportForm({ sportName: "", sportIcon: "", coach_id: "", coach_name: "", coach_phone: "", standard_1month: "3000", standard_3months: "8500", standard_6months: "16000", premium_1month: "4500", premium_3months: "12500", premium_6months: "24000" });
+              setSportForm({ sportName: "", sportIcon: "", coach_id: "", coach_name: "", coach_phone: "", pricing: defaultPricingConfig() });
               setAvailableCoaches([]);
               setAddSportOpen(true);
             }} className="gap-1"><Plus className="h-4 w-4" /> Add Sport</Button>
