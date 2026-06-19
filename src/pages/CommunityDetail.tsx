@@ -21,8 +21,9 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   useCommunity, useSports, useStudents, useSportPricing, useTimeSlots, useGlobalSports,
   useCreateSport, useCreateTimeSlot, useCreateStudent, useUpdateCommunity, useUpdateSportPricing,
-  useCreateCoachAssignment, formatCurrencyFull, formatCurrency, formatTime,
+  useCreateCoachAssignment, useSessionPacks, useUpdateSportFull, formatCurrencyFull, formatCurrency, formatTime,
 } from "@/hooks/useSupabaseData";
+import SportPricingFields, { defaultPricingConfig, type PricingConfig } from "@/components/SportPricingFields";
 
 export default function CommunityDetail() {
   const { id } = useParams();
