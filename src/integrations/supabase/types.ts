@@ -544,6 +544,60 @@ export type Database = {
         }
         Relationships: []
       }
+      session_pack_pricing: {
+        Row: {
+          community_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          pack_name: string
+          premium_price: number | null
+          session_count: number
+          sport_id: string | null
+          standard_price: number
+          updated_at: string | null
+        }
+        Insert: {
+          community_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          pack_name: string
+          premium_price?: number | null
+          session_count: number
+          sport_id?: string | null
+          standard_price: number
+          updated_at?: string | null
+        }
+        Update: {
+          community_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          pack_name?: string
+          premium_price?: number | null
+          session_count?: number
+          sport_id?: string | null
+          standard_price?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_pack_pricing_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_pack_pricing_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sport_pricing: {
         Row: {
           community_id: string
@@ -629,13 +683,18 @@ export type Database = {
           coach_phone: string
           community_id: string
           created_at: string
+          custom_monthly_price: number | null
+          custom_monthly_sessions: number | null
           icon: string
           id: string
           is_active: boolean | null
           is_custom: boolean | null
           name: string
           premium_fee: number
+          pricing_type: string | null
+          renewal_trigger: string | null
           revenue_collected: number | null
+          sessions_per_month: number | null
           standard_fee: number
           time_slots: string[]
           total_students: number | null
@@ -647,13 +706,18 @@ export type Database = {
           coach_phone?: string
           community_id: string
           created_at?: string
+          custom_monthly_price?: number | null
+          custom_monthly_sessions?: number | null
           icon?: string
           id?: string
           is_active?: boolean | null
           is_custom?: boolean | null
           name: string
           premium_fee?: number
+          pricing_type?: string | null
+          renewal_trigger?: string | null
           revenue_collected?: number | null
+          sessions_per_month?: number | null
           standard_fee?: number
           time_slots?: string[]
           total_students?: number | null
@@ -665,13 +729,18 @@ export type Database = {
           coach_phone?: string
           community_id?: string
           created_at?: string
+          custom_monthly_price?: number | null
+          custom_monthly_sessions?: number | null
           icon?: string
           id?: string
           is_active?: boolean | null
           is_custom?: boolean | null
           name?: string
           premium_fee?: number
+          pricing_type?: string | null
+          renewal_trigger?: string | null
           revenue_collected?: number | null
+          sessions_per_month?: number | null
           standard_fee?: number
           time_slots?: string[]
           total_students?: number | null
@@ -696,6 +765,7 @@ export type Database = {
           community_id: string
           created_at: string
           created_by: string | null
+          current_pack_name: string | null
           days_overdue: number | null
           fee_amount: number
           fee_status: string
@@ -714,12 +784,17 @@ export type Database = {
           payment_start_date: string | null
           plan_change_effective_from: string | null
           plan_change_requested_at: string | null
+          pricing_type: string | null
+          renewal_trigger: string | null
+          sessions_completed: number | null
+          sessions_remaining: number | null
           sport_id: string
           student_id: string
           student_phone: string | null
           student_type: string | null
           student_whatsapp: string | null
           time_slot_id: string | null
+          total_sessions_paid: number | null
           updated_at: string
         }
         Insert: {
@@ -730,6 +805,7 @@ export type Database = {
           community_id: string
           created_at?: string
           created_by?: string | null
+          current_pack_name?: string | null
           days_overdue?: number | null
           fee_amount?: number
           fee_status?: string
@@ -748,12 +824,17 @@ export type Database = {
           payment_start_date?: string | null
           plan_change_effective_from?: string | null
           plan_change_requested_at?: string | null
+          pricing_type?: string | null
+          renewal_trigger?: string | null
+          sessions_completed?: number | null
+          sessions_remaining?: number | null
           sport_id: string
           student_id: string
           student_phone?: string | null
           student_type?: string | null
           student_whatsapp?: string | null
           time_slot_id?: string | null
+          total_sessions_paid?: number | null
           updated_at?: string
         }
         Update: {
@@ -764,6 +845,7 @@ export type Database = {
           community_id?: string
           created_at?: string
           created_by?: string | null
+          current_pack_name?: string | null
           days_overdue?: number | null
           fee_amount?: number
           fee_status?: string
@@ -782,12 +864,17 @@ export type Database = {
           payment_start_date?: string | null
           plan_change_effective_from?: string | null
           plan_change_requested_at?: string | null
+          pricing_type?: string | null
+          renewal_trigger?: string | null
+          sessions_completed?: number | null
+          sessions_remaining?: number | null
           sport_id?: string
           student_id?: string
           student_phone?: string | null
           student_type?: string | null
           student_whatsapp?: string | null
           time_slot_id?: string | null
+          total_sessions_paid?: number | null
           updated_at?: string
         }
         Relationships: [
