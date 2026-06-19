@@ -13,18 +13,15 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useCommunities, useStudents, usePayments, useSports, useGlobalSports, useCreateCommunity, useDeleteCommunity, useCoaches, formatCurrency, formatCurrencyFull } from "@/hooks/useSupabaseData";
 import { Lock, X, MessageSquare, AlertTriangle } from "lucide-react";
 
+import SportPricingFields, { defaultPricingConfig, type PricingConfig } from "@/components/SportPricingFields";
+
 interface SportPricingEntry {
   sportName: string;
   sportIcon: string;
   coach_name: string;
   coach_phone: string;
   coach_ids: string[];
-  standard_1month: string;
-  standard_3months: string;
-  standard_6months: string;
-  premium_1month: string;
-  premium_3months: string;
-  premium_6months: string;
+  pricing: PricingConfig;
 }
 
 export default function Communities() {
