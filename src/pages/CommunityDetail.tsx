@@ -194,20 +194,34 @@ export default function CommunityDetail() {
       }, { onConflict: "sport_name" });
     }
 
+    const p = sportForm.pricing;
     const sport = await createSport.mutateAsync({
       name: sportForm.sportName,
       icon: sportForm.sportIcon,
       community_id: id!,
       coach_name: sportForm.coach_name,
       coach_phone: sportForm.coach_phone,
-      standard_1month: Number(sportForm.standard_1month),
-      standard_3months: Number(sportForm.standard_3months),
-      standard_6months: Number(sportForm.standard_6months),
-      premium_1month: Number(sportForm.premium_1month),
-      premium_3months: Number(sportForm.premium_3months),
-      premium_6months: Number(sportForm.premium_6months),
+      pricing_type: p.pricing_type,
+      renewal_trigger: p.pricing_type === "custom_monthly" ? "session_based" : p.renewal_trigger,
+      standard_1month: Number(p.standard_1month) || 0,
+      standard_3months: Number(p.standard_3months) || 0,
+      standard_6months: Number(p.standard_6months) || 0,
+      premium_1month: Number(p.premium_1month) || 0,
+      premium_3months: Number(p.premium_3months) || 0,
+      premium_6months: Number(p.premium_6months) || 0,
+      sessions_per_month: p.pricing_type === "duration_based" && p.renewal_trigger === "session_based" ? Number(p.sessions_per_month) || null : null,
+      custom_monthly_price: p.pricing_type === "custom_monthly" ? Number(p.custom_monthly_price) || null : null,
+      custom_monthly_sessions: p.pricing_type === "custom_monthly" ? Number(p.custom_monthly_sessions) || null : null,
+      packs: p.pricing_type === "session_pack"
+        ? p.packs.filter((pk) => pk.pack_name && pk.session_count).map((pk) => ({
+            pack_name: pk.pack_name,
+            session_count: Number(pk.session_count) || 0,
+            standard_price: Number(pk.standard_price) || 0,
+            premium_price: pk.premium_price ? Number(pk.premium_price) : null,
+          }))
+        : undefined,
     });
-    
+
     // Create coach assignment if coach was selected
     if (sportForm.coach_id && sport?.id) {
       await createCoachAssignment.mutateAsync({
@@ -216,7 +230,7 @@ export default function CommunityDetail() {
         sport_id: sport.id,
       });
     }
-    
+
     setAddSportOpen(false);
   };
 
