@@ -560,32 +560,19 @@ export default function CommunityDetail() {
             <div><Label>Contact Phone</Label><Input value={editForm.contact_phone} onChange={(e) => setEditForm((p) => ({ ...p, contact_phone: e.target.value }))} /></div>
 
             {/* Sport Pricing */}
-            {commPricing.length > 0 && (
+            {commSports.length > 0 && (
               <div className="border-t border-border pt-4 space-y-4">
                 <h3 className="font-bold">Sports Pricing</h3>
-                {commPricing.map((pricing) => {
-                  const sport = commSports.find((s) => s.id === pricing.sport_id);
-                  const form = editPricingForms[pricing.id];
-                  if (!form) return null;
+                {commSports.map((sport: any) => {
+                  const cfg = editSportConfigs[sport.id];
+                  if (!cfg) return null;
                   return (
-                    <div key={pricing.id} className="p-4 rounded-lg bg-muted/30 border border-border space-y-3">
-                      <h4 className="font-semibold">{sport?.icon} {sport?.name}</h4>
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Standard Batch</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div><Label className="text-xs">1M</Label><Input type="number" value={form.standard_1month} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], standard_1month: e.target.value } }))} /></div>
-                          <div><Label className="text-xs">3M</Label><Input type="number" value={form.standard_3months} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], standard_3months: e.target.value } }))} /></div>
-                          <div><Label className="text-xs">6M</Label><Input type="number" value={form.standard_6months} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], standard_6months: e.target.value } }))} /></div>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Premium Batch</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div><Label className="text-xs">1M</Label><Input type="number" value={form.premium_1month} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], premium_1month: e.target.value } }))} /></div>
-                          <div><Label className="text-xs">3M</Label><Input type="number" value={form.premium_3months} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], premium_3months: e.target.value } }))} /></div>
-                          <div><Label className="text-xs">6M</Label><Input type="number" value={form.premium_6months} onChange={(e) => setEditPricingForms((p) => ({ ...p, [pricing.id]: { ...p[pricing.id], premium_6months: e.target.value } }))} /></div>
-                        </div>
-                      </div>
+                    <div key={sport.id} className="p-4 rounded-lg bg-muted/30 border border-border space-y-3">
+                      <h4 className="font-semibold">{sport.icon} {sport.name}</h4>
+                      <SportPricingFields
+                        value={cfg}
+                        onChange={(next) => setEditSportConfigs((prev) => ({ ...prev, [sport.id]: next }))}
+                      />
                     </div>
                   );
                 })}
