@@ -62,8 +62,7 @@ export default function CommunityDetail() {
 
   const [sportForm, setSportForm] = useState({
     sportName: "", sportIcon: "", coach_id: "", coach_name: "", coach_phone: "",
-    standard_1month: "3000", standard_3months: "8500", standard_6months: "16000",
-    premium_1month: "4500", premium_3months: "12500", premium_6months: "24000",
+    pricing: defaultPricingConfig(),
   });
 
   const [availableCoaches, setAvailableCoaches] = useState<Array<{ id: string; coach_id: string; name: string; phone: string | null; sport_name: string }>>([]);
@@ -76,10 +75,10 @@ export default function CommunityDetail() {
   const [editForm, setEditForm] = useState({
     name: "", short_code: "", address: "", contact_person: "", contact_phone: "",
   });
-  const [editPricingForms, setEditPricingForms] = useState<Record<string, {
-    standard_1month: string; standard_3months: string; standard_6months: string;
-    premium_1month: string; premium_3months: string; premium_6months: string;
-  }>>({});
+  // per-sport pricing config used in Edit Community
+  const [editSportConfigs, setEditSportConfigs] = useState<Record<string, PricingConfig>>({});
+  const { data: commPacks = [] } = useSessionPacks(id);
+  const updateSportFull = useUpdateSportFull();
 
   const selectedSport = commSports.find((s) => s.id === studentForm.sport_id);
   const studentSlots = useMemo(() => {
