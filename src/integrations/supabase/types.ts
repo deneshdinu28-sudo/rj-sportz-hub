@@ -546,10 +546,14 @@ export type Database = {
       }
       session_pack_pricing: {
         Row: {
+          adult_premium_price: number | null
+          adult_standard_price: number | null
           community_id: string | null
           created_at: string | null
           id: string
           is_active: boolean | null
+          kid_premium_price: number | null
+          kid_standard_price: number | null
           pack_name: string
           premium_price: number | null
           session_count: number
@@ -558,10 +562,14 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          adult_premium_price?: number | null
+          adult_standard_price?: number | null
           community_id?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          kid_premium_price?: number | null
+          kid_standard_price?: number | null
           pack_name: string
           premium_price?: number | null
           session_count: number
@@ -570,10 +578,14 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          adult_premium_price?: number | null
+          adult_standard_price?: number | null
           community_id?: string | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          kid_premium_price?: number | null
+          kid_standard_price?: number | null
           pack_name?: string
           premium_price?: number | null
           session_count?: number
@@ -600,9 +612,21 @@ export type Database = {
       }
       sport_pricing: {
         Row: {
+          adult_premium_1month: number | null
+          adult_premium_3month: number | null
+          adult_premium_6month: number | null
+          adult_standard_1month: number | null
+          adult_standard_3month: number | null
+          adult_standard_6month: number | null
           community_id: string
           created_at: string | null
           id: string
+          kid_premium_1month: number | null
+          kid_premium_3month: number | null
+          kid_premium_6month: number | null
+          kid_standard_1month: number | null
+          kid_standard_3month: number | null
+          kid_standard_6month: number | null
           premium_1month: number
           premium_3months: number
           premium_6months: number
@@ -613,9 +637,21 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          adult_premium_1month?: number | null
+          adult_premium_3month?: number | null
+          adult_premium_6month?: number | null
+          adult_standard_1month?: number | null
+          adult_standard_3month?: number | null
+          adult_standard_6month?: number | null
           community_id: string
           created_at?: string | null
           id?: string
+          kid_premium_1month?: number | null
+          kid_premium_3month?: number | null
+          kid_premium_6month?: number | null
+          kid_standard_1month?: number | null
+          kid_standard_3month?: number | null
+          kid_standard_6month?: number | null
           premium_1month?: number
           premium_3months?: number
           premium_6months?: number
@@ -626,9 +662,21 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          adult_premium_1month?: number | null
+          adult_premium_3month?: number | null
+          adult_premium_6month?: number | null
+          adult_standard_1month?: number | null
+          adult_standard_3month?: number | null
+          adult_standard_6month?: number | null
           community_id?: string
           created_at?: string | null
           id?: string
+          kid_premium_1month?: number | null
+          kid_premium_3month?: number | null
+          kid_premium_6month?: number | null
+          kid_standard_1month?: number | null
+          kid_standard_3month?: number | null
+          kid_standard_6month?: number | null
           premium_1month?: number
           premium_3months?: number
           premium_6months?: number
@@ -679,6 +727,11 @@ export type Database = {
       sports: {
         Row: {
           active_days: string[]
+          adult_custom_monthly_price: number | null
+          adult_custom_monthly_sessions: number | null
+          adult_sessions_per_month: number | null
+          allows_adults: boolean | null
+          allows_kids: boolean | null
           coach_name: string
           coach_phone: string
           community_id: string
@@ -689,9 +742,13 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_custom: boolean | null
+          kid_custom_monthly_price: number | null
+          kid_custom_monthly_sessions: number | null
+          kid_sessions_per_month: number | null
           name: string
           premium_fee: number
           pricing_type: string | null
+          renewal_days: number | null
           renewal_trigger: string | null
           revenue_collected: number | null
           sessions_per_month: number | null
@@ -702,6 +759,11 @@ export type Database = {
         }
         Insert: {
           active_days?: string[]
+          adult_custom_monthly_price?: number | null
+          adult_custom_monthly_sessions?: number | null
+          adult_sessions_per_month?: number | null
+          allows_adults?: boolean | null
+          allows_kids?: boolean | null
           coach_name?: string
           coach_phone?: string
           community_id: string
@@ -712,9 +774,13 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_custom?: boolean | null
+          kid_custom_monthly_price?: number | null
+          kid_custom_monthly_sessions?: number | null
+          kid_sessions_per_month?: number | null
           name: string
           premium_fee?: number
           pricing_type?: string | null
+          renewal_days?: number | null
           renewal_trigger?: string | null
           revenue_collected?: number | null
           sessions_per_month?: number | null
@@ -725,6 +791,11 @@ export type Database = {
         }
         Update: {
           active_days?: string[]
+          adult_custom_monthly_price?: number | null
+          adult_custom_monthly_sessions?: number | null
+          adult_sessions_per_month?: number | null
+          allows_adults?: boolean | null
+          allows_kids?: boolean | null
           coach_name?: string
           coach_phone?: string
           community_id?: string
@@ -735,9 +806,13 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_custom?: boolean | null
+          kid_custom_monthly_price?: number | null
+          kid_custom_monthly_sessions?: number | null
+          kid_sessions_per_month?: number | null
           name?: string
           premium_fee?: number
           pricing_type?: string | null
+          renewal_days?: number | null
           renewal_trigger?: string | null
           revenue_collected?: number | null
           sessions_per_month?: number | null
