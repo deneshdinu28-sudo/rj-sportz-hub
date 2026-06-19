@@ -77,6 +77,8 @@ export default function CommunityDetail() {
   });
   // per-sport pricing config used in Edit Community
   const [editSportConfigs, setEditSportConfigs] = useState<Record<string, PricingConfig>>({});
+  const [editSportId, setEditSportId] = useState<string | null>(null);
+  const [editSportCfg, setEditSportCfg] = useState<PricingConfig>(defaultPricingConfig());
   const { data: commPacks = [] } = useSessionPacks(id);
   const updateSportFull = useUpdateSportFull();
 
