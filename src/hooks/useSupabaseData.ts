@@ -37,8 +37,14 @@ export function useCreateCommunity() {
       sports: Array<{
         sportName: string; sportIcon: string; coach_name: string; coach_phone: string;
         coach_ids?: string[];
+        pricing_type: "duration_based" | "custom_monthly" | "session_pack";
+        renewal_trigger: "date_based" | "session_based";
         standard_1month: number; standard_3months: number; standard_6months: number;
         premium_1month: number; premium_3months: number; premium_6months: number;
+        sessions_per_month?: number | null;
+        custom_monthly_price?: number | null;
+        custom_monthly_sessions?: number | null;
+        packs?: Array<{ pack_name: string; session_count: number; standard_price: number; premium_price: number | null }>;
       }>;
     }) => {
       const { data: community, error: cErr } = await supabase.from("communities").insert({
@@ -49,7 +55,13 @@ export function useCreateCommunity() {
       for (const s of input.sports) {
         const { data: sport, error: sErr } = await supabase.from("sports").insert({
           name: s.sportName, icon: s.sportIcon, community_id: community.id,
-          coach_name: s.coach_name, coach_phone: s.coach_phone, standard_fee: s.standard_1month, premium_fee: s.premium_1month,
+          coach_name: s.coach_name, coach_phone: s.coach_phone,
+          standard_fee: s.standard_1month, premium_fee: s.premium_1month,
+          pricing_type: s.pricing_type,
+          renewal_trigger: s.renewal_trigger,
+          custom_monthly_price: s.custom_monthly_price ?? null,
+          custom_monthly_sessions: s.custom_monthly_sessions ?? null,
+          sessions_per_month: s.sessions_per_month ?? null,
         }).select().single();
         if (sErr) throw sErr;
         const { error: pErr } = await supabase.from("sport_pricing").insert({
@@ -58,6 +70,17 @@ export function useCreateCommunity() {
           premium_1month: s.premium_1month, premium_3months: s.premium_3months, premium_6months: s.premium_6months,
         });
         if (pErr) throw pErr;
+        if (s.pricing_type === "session_pack" && s.packs && s.packs.length > 0) {
+          const { error: packErr } = await supabase.from("session_pack_pricing").insert(
+            s.packs.map((p) => ({
+              sport_id: sport.id, community_id: community.id,
+              pack_name: p.pack_name, session_count: p.session_count,
+              standard_price: p.standard_price, premium_price: p.premium_price,
+              is_active: true,
+            }))
+          );
+          if (packErr) throw packErr;
+        }
         // Create coach_assignments for each selected coach
         if (s.coach_ids && s.coach_ids.length > 0) {
           const assignments = s.coach_ids.map((coach_id) => ({
