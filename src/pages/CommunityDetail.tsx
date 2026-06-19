@@ -441,11 +441,15 @@ export default function CommunityDetail() {
                           <p className="text-sm text-muted-foreground mt-1">Standard: {formatCurrencyFull(Number(pricing.standard_1month))}/mo | Premium: {formatCurrencyFull(Number(pricing.premium_1month))}/mo</p>
                         )}
                       </div>
-                      <div className="text-right text-sm">
+                      <div className="text-right text-sm flex flex-col items-end gap-1">
                         <p className="font-semibold">👥 {sportStudents.length} • 💰 {formatCurrency(revenue)}</p>
                         <p className="text-muted-foreground">{paid} paid, {pending} pending</p>
+                        <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs text-primary hover:text-primary" onClick={(e) => { e.stopPropagation(); openEditSport(sport); }}>
+                          <Edit2 className="h-3 w-3" /> Edit Pricing
+                        </Button>
                       </div>
                     </div>
+
 
                     {expanded && (
                       <div className="border-t border-border">
