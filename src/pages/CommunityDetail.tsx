@@ -177,62 +177,32 @@ export default function CommunityDetail() {
   };
 
   const handleSaveSport = async () => {
-    // If custom sport, check if it exists in global_sports and add if not
     const existingGlobal = globalSports.find((g) => g.name === sportForm.sportName);
     if (!existingGlobal && sportForm.sportName) {
-      // Add to global_sports
       await supabase.from("global_sports").insert({
-        name: sportForm.sportName,
-        icon: sportForm.sportIcon || "🏃",
-        is_default: false,
+        name: sportForm.sportName, icon: sportForm.sportIcon || "🏃", is_default: false,
       });
-      // Add shortcode
       const shortcode = sportForm.sportName.substring(0, 3).toUpperCase();
-      await supabase.from("sport_shortcodes").upsert({
-        sport_name: sportForm.sportName,
-        shortcode,
-      }, { onConflict: "sport_name" });
+      await supabase.from("sport_shortcodes").upsert({ sport_name: sportForm.sportName, shortcode }, { onConflict: "sport_name" });
     }
 
-    const p = sportForm.pricing;
     const sport = await createSport.mutateAsync({
       name: sportForm.sportName,
       icon: sportForm.sportIcon,
       community_id: id!,
       coach_name: sportForm.coach_name,
       coach_phone: sportForm.coach_phone,
-      pricing_type: p.pricing_type,
-      renewal_trigger: p.pricing_type === "custom_monthly" ? "session_based" : p.renewal_trigger,
-      standard_1month: Number(p.standard_1month) || 0,
-      standard_3months: Number(p.standard_3months) || 0,
-      standard_6months: Number(p.standard_6months) || 0,
-      premium_1month: Number(p.premium_1month) || 0,
-      premium_3months: Number(p.premium_3months) || 0,
-      premium_6months: Number(p.premium_6months) || 0,
-      sessions_per_month: p.pricing_type === "duration_based" && p.renewal_trigger === "session_based" ? Number(p.sessions_per_month) || null : null,
-      custom_monthly_price: p.pricing_type === "custom_monthly" ? Number(p.custom_monthly_price) || null : null,
-      custom_monthly_sessions: p.pricing_type === "custom_monthly" ? Number(p.custom_monthly_sessions) || null : null,
-      packs: p.pricing_type === "session_pack"
-        ? p.packs.filter((pk) => pk.pack_name && pk.session_count).map((pk) => ({
-            pack_name: pk.pack_name,
-            session_count: Number(pk.session_count) || 0,
-            standard_price: Number(pk.standard_price) || 0,
-            premium_price: pk.premium_price ? Number(pk.premium_price) : null,
-          }))
-        : undefined,
+      pricing: sportForm.pricing,
     });
 
-    // Create coach assignment if coach was selected
     if (sportForm.coach_id && sport?.id) {
       await createCoachAssignment.mutateAsync({
-        coach_id: sportForm.coach_id,
-        community_id: id!,
-        sport_id: sport.id,
+        coach_id: sportForm.coach_id, community_id: id!, sport_id: sport.id,
       });
     }
-
     setAddSportOpen(false);
   };
+
 
   const handleSaveSlot = async () => {
     await createTimeSlot.mutateAsync({
