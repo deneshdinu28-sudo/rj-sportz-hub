@@ -223,45 +223,26 @@ export function useCreateSport() {
   return useMutation({
     mutationFn: async (input: {
       name: string; icon: string; community_id: string; coach_name: string; coach_phone: string;
-      pricing_type: "duration_based" | "custom_monthly" | "session_pack";
-      renewal_trigger: "date_based" | "session_based";
-      standard_1month: number; standard_3months: number; standard_6months: number;
-      premium_1month: number; premium_3months: number; premium_6months: number;
-      sessions_per_month?: number | null;
-      custom_monthly_price?: number | null;
-      custom_monthly_sessions?: number | null;
-      packs?: Array<{ pack_name: string; session_count: number; standard_price: number; premium_price: number | null }>;
+      pricing: PricingConfig;
     }) => {
+      const { sportRow, pricingRow, packRows } = pricingConfigToRows(input.pricing, input.community_id);
       const { data: sport, error: sErr } = await supabase.from("sports").insert({
         name: input.name, icon: input.icon, community_id: input.community_id,
         coach_name: input.coach_name, coach_phone: input.coach_phone,
-        standard_fee: input.standard_1month, premium_fee: input.premium_1month,
-        pricing_type: input.pricing_type,
-        renewal_trigger: input.renewal_trigger,
-        custom_monthly_price: input.custom_monthly_price ?? null,
-        custom_monthly_sessions: input.custom_monthly_sessions ?? null,
-        sessions_per_month: input.sessions_per_month ?? null,
-      }).select().single();
+        ...sportRow,
+      } as any).select().single();
       if (sErr) throw sErr;
-      const { error: pErr } = await supabase.from("sport_pricing").insert({
-        community_id: input.community_id, sport_id: sport.id,
-        standard_1month: input.standard_1month, standard_3months: input.standard_3months, standard_6months: input.standard_6months,
-        premium_1month: input.premium_1month, premium_3months: input.premium_3months, premium_6months: input.premium_6months,
-      });
+      const { error: pErr } = await supabase.from("sport_pricing").insert({ ...pricingRow, sport_id: sport.id } as any);
       if (pErr) throw pErr;
-      if (input.pricing_type === "session_pack" && input.packs && input.packs.length > 0) {
+      if (packRows.length > 0) {
         const { error: packErr } = await supabase.from("session_pack_pricing").insert(
-          input.packs.map((p) => ({
-            sport_id: sport.id, community_id: input.community_id,
-            pack_name: p.pack_name, session_count: p.session_count,
-            standard_price: p.standard_price, premium_price: p.premium_price,
-            is_active: true,
-          }))
+          packRows.map((p) => ({ ...p, sport_id: sport.id })) as any
         );
         if (packErr) throw packErr;
       }
       return sport;
     },
+
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["sports", vars.community_id] });
       qc.invalidateQueries({ queryKey: ["community", vars.community_id] });
