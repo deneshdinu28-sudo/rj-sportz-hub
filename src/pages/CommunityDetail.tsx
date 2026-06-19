@@ -291,9 +291,6 @@ export default function CommunityDetail() {
     setEditCommunityOpen(false);
   };
 
-  // Per-sport quick edit
-  const [editSportId, setEditSportId] = useState<string | null>(null);
-  const [editSportCfg, setEditSportCfg] = useState<PricingConfig>(defaultPricingConfig());
   const openEditSport = (sport: any) => {
     setEditSportCfg(buildPricingConfig(sport));
     setEditSportId(sport.id);
