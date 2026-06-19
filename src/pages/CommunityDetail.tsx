@@ -177,62 +177,32 @@ export default function CommunityDetail() {
   };
 
   const handleSaveSport = async () => {
-    // If custom sport, check if it exists in global_sports and add if not
     const existingGlobal = globalSports.find((g) => g.name === sportForm.sportName);
     if (!existingGlobal && sportForm.sportName) {
-      // Add to global_sports
       await supabase.from("global_sports").insert({
-        name: sportForm.sportName,
-        icon: sportForm.sportIcon || "🏃",
-        is_default: false,
+        name: sportForm.sportName, icon: sportForm.sportIcon || "🏃", is_default: false,
       });
-      // Add shortcode
       const shortcode = sportForm.sportName.substring(0, 3).toUpperCase();
-      await supabase.from("sport_shortcodes").upsert({
-        sport_name: sportForm.sportName,
-        shortcode,
-      }, { onConflict: "sport_name" });
+      await supabase.from("sport_shortcodes").upsert({ sport_name: sportForm.sportName, shortcode }, { onConflict: "sport_name" });
     }
 
-    const p = sportForm.pricing;
     const sport = await createSport.mutateAsync({
       name: sportForm.sportName,
       icon: sportForm.sportIcon,
       community_id: id!,
       coach_name: sportForm.coach_name,
       coach_phone: sportForm.coach_phone,
-      pricing_type: p.pricing_type,
-      renewal_trigger: p.pricing_type === "custom_monthly" ? "session_based" : p.renewal_trigger,
-      standard_1month: Number(p.standard_1month) || 0,
-      standard_3months: Number(p.standard_3months) || 0,
-      standard_6months: Number(p.standard_6months) || 0,
-      premium_1month: Number(p.premium_1month) || 0,
-      premium_3months: Number(p.premium_3months) || 0,
-      premium_6months: Number(p.premium_6months) || 0,
-      sessions_per_month: p.pricing_type === "duration_based" && p.renewal_trigger === "session_based" ? Number(p.sessions_per_month) || null : null,
-      custom_monthly_price: p.pricing_type === "custom_monthly" ? Number(p.custom_monthly_price) || null : null,
-      custom_monthly_sessions: p.pricing_type === "custom_monthly" ? Number(p.custom_monthly_sessions) || null : null,
-      packs: p.pricing_type === "session_pack"
-        ? p.packs.filter((pk) => pk.pack_name && pk.session_count).map((pk) => ({
-            pack_name: pk.pack_name,
-            session_count: Number(pk.session_count) || 0,
-            standard_price: Number(pk.standard_price) || 0,
-            premium_price: pk.premium_price ? Number(pk.premium_price) : null,
-          }))
-        : undefined,
+      pricing: sportForm.pricing,
     });
 
-    // Create coach assignment if coach was selected
     if (sportForm.coach_id && sport?.id) {
       await createCoachAssignment.mutateAsync({
-        coach_id: sportForm.coach_id,
-        community_id: id!,
-        sport_id: sport.id,
+        coach_id: sportForm.coach_id, community_id: id!, sport_id: sport.id,
       });
     }
-
     setAddSportOpen(false);
   };
+
 
   const handleSaveSlot = async () => {
     await createTimeSlot.mutateAsync({
@@ -248,44 +218,55 @@ export default function CommunityDetail() {
     setAddSlotOpen(false);
   };
 
+  const buildPricingConfig = (sport: any): PricingConfig => {
+    const pr: any = commPricing.find((p) => p.sport_id === sport.id);
+    const sportPacks: any[] = commPacks.filter((pk: any) => pk.sport_id === sport.id);
+    const def = defaultPricingConfig();
+    const str = (v: any, fallback: string) => v != null ? String(v) : fallback;
+    return {
+      allows_kids: sport.allows_kids ?? true,
+      allows_adults: sport.allows_adults ?? true,
+      pricing_type: (sport.pricing_type as any) ?? "duration_based",
+      renewal_trigger: (sport.renewal_trigger as any) ?? "date_based",
+      kid_standard_1month: str(pr?.kid_standard_1month ?? pr?.standard_1month, def.kid_standard_1month),
+      kid_standard_3months: str(pr?.kid_standard_3month ?? pr?.standard_3months, def.kid_standard_3months),
+      kid_standard_6months: str(pr?.kid_standard_6month ?? pr?.standard_6months, def.kid_standard_6months),
+      kid_premium_1month: str(pr?.kid_premium_1month ?? pr?.premium_1month, def.kid_premium_1month),
+      kid_premium_3months: str(pr?.kid_premium_3month ?? pr?.premium_3months, def.kid_premium_3months),
+      kid_premium_6months: str(pr?.kid_premium_6month ?? pr?.premium_6months, def.kid_premium_6months),
+      adult_standard_1month: str(pr?.adult_standard_1month ?? pr?.standard_1month, def.adult_standard_1month),
+      adult_standard_3months: str(pr?.adult_standard_3month ?? pr?.standard_3months, def.adult_standard_3months),
+      adult_standard_6months: str(pr?.adult_standard_6month ?? pr?.standard_6months, def.adult_standard_6months),
+      adult_premium_1month: str(pr?.adult_premium_1month ?? pr?.premium_1month, def.adult_premium_1month),
+      adult_premium_3months: str(pr?.adult_premium_3month ?? pr?.premium_3months, def.adult_premium_3months),
+      adult_premium_6months: str(pr?.adult_premium_6month ?? pr?.premium_6months, def.adult_premium_6months),
+      kid_sessions_per_month: str(sport.kid_sessions_per_month ?? sport.sessions_per_month, def.kid_sessions_per_month),
+      adult_sessions_per_month: str(sport.adult_sessions_per_month ?? sport.sessions_per_month, def.adult_sessions_per_month),
+      kid_custom_monthly_price: str(sport.kid_custom_monthly_price ?? sport.custom_monthly_price, def.kid_custom_monthly_price),
+      kid_custom_monthly_sessions: str(sport.kid_custom_monthly_sessions ?? sport.custom_monthly_sessions, def.kid_custom_monthly_sessions),
+      adult_custom_monthly_price: str(sport.adult_custom_monthly_price ?? sport.custom_monthly_price, def.adult_custom_monthly_price),
+      adult_custom_monthly_sessions: str(sport.adult_custom_monthly_sessions ?? sport.custom_monthly_sessions, def.adult_custom_monthly_sessions),
+      renewal_days: str(sport.renewal_days, def.renewal_days),
+      packs: sportPacks.length > 0
+        ? sportPacks.map((pk: any) => ({
+            pack_name: pk.pack_name,
+            session_count: String(pk.session_count),
+            kid_standard_price: str(pk.kid_standard_price ?? pk.standard_price, ""),
+            kid_premium_price: str(pk.kid_premium_price ?? pk.premium_price, ""),
+            adult_standard_price: str(pk.adult_standard_price ?? pk.standard_price, ""),
+            adult_premium_price: str(pk.adult_premium_price ?? pk.premium_price, ""),
+          }))
+        : def.packs,
+    };
+  };
+
   const openEditCommunity = () => {
     setEditForm({
-      name: community.name,
-      short_code: community.short_code,
-      address: community.address,
-      contact_person: community.contact_person,
-      contact_phone: community.contact_phone,
+      name: community.name, short_code: community.short_code, address: community.address,
+      contact_person: community.contact_person, contact_phone: community.contact_phone,
     });
-    // Build per-sport pricing config combining sport row + sport_pricing + session packs
     const configs: Record<string, PricingConfig> = {};
-    commSports.forEach((sport: any) => {
-      const pr = commPricing.find((p) => p.sport_id === sport.id);
-      const sportPacks = commPacks.filter((pk: any) => pk.sport_id === sport.id);
-      const def = defaultPricingConfig();
-      configs[sport.id] = {
-        ...def,
-        pricing_type: (sport.pricing_type as any) ?? "duration_based",
-        renewal_trigger: (sport.renewal_trigger as any) ?? "date_based",
-        standard_1month: String(pr?.standard_1month ?? def.standard_1month),
-        standard_3months: String(pr?.standard_3months ?? def.standard_3months),
-        standard_6months: String(pr?.standard_6months ?? def.standard_6months),
-        premium_1month: String(pr?.premium_1month ?? def.premium_1month),
-        premium_3months: String(pr?.premium_3months ?? def.premium_3months),
-        premium_6months: String(pr?.premium_6months ?? def.premium_6months),
-        sessions_per_month: sport.sessions_per_month != null ? String(sport.sessions_per_month) : def.sessions_per_month,
-        custom_monthly_price: sport.custom_monthly_price != null ? String(sport.custom_monthly_price) : def.custom_monthly_price,
-        custom_monthly_sessions: sport.custom_monthly_sessions != null ? String(sport.custom_monthly_sessions) : def.custom_monthly_sessions,
-        packs: sportPacks.length > 0
-          ? sportPacks.map((pk: any) => ({
-              pack_name: pk.pack_name,
-              session_count: String(pk.session_count),
-              standard_price: String(pk.standard_price),
-              premium_price: pk.premium_price != null ? String(pk.premium_price) : "",
-            }))
-          : def.packs,
-        renewal_days: def.renewal_days,
-      };
-    });
+    commSports.forEach((sport: any) => { configs[sport.id] = buildPricingConfig(sport); });
     setEditSportConfigs(configs);
     setEditCommunityOpen(true);
   };
@@ -293,13 +274,9 @@ export default function CommunityDetail() {
   const handleUpdateCommunity = async () => {
     await updateCommunity.mutateAsync({
       id: id!,
-      name: editForm.name,
-      short_code: editForm.short_code,
-      address: editForm.address,
-      contact_person: editForm.contact_person,
-      contact_phone: editForm.contact_phone,
+      name: editForm.name, short_code: editForm.short_code, address: editForm.address,
+      contact_person: editForm.contact_person, contact_phone: editForm.contact_phone,
     });
-    // Update each sport
     for (const sport of commSports) {
       const cfg = editSportConfigs[sport.id];
       if (!cfg) continue;
@@ -308,29 +285,29 @@ export default function CommunityDetail() {
         sport_id: sport.id,
         community_id: id!,
         pricing_id: pr?.id ?? null,
-        pricing_type: cfg.pricing_type,
-        renewal_trigger: cfg.pricing_type === "custom_monthly" ? "session_based" : cfg.renewal_trigger,
-        standard_1month: Number(cfg.standard_1month) || 0,
-        standard_3months: Number(cfg.standard_3months) || 0,
-        standard_6months: Number(cfg.standard_6months) || 0,
-        premium_1month: Number(cfg.premium_1month) || 0,
-        premium_3months: Number(cfg.premium_3months) || 0,
-        premium_6months: Number(cfg.premium_6months) || 0,
-        sessions_per_month: cfg.pricing_type === "duration_based" && cfg.renewal_trigger === "session_based" ? Number(cfg.sessions_per_month) || null : null,
-        custom_monthly_price: cfg.pricing_type === "custom_monthly" ? Number(cfg.custom_monthly_price) || null : null,
-        custom_monthly_sessions: cfg.pricing_type === "custom_monthly" ? Number(cfg.custom_monthly_sessions) || null : null,
-        packs: cfg.pricing_type === "session_pack"
-          ? cfg.packs.filter((p) => p.pack_name && p.session_count).map((p) => ({
-              pack_name: p.pack_name,
-              session_count: Number(p.session_count) || 0,
-              standard_price: Number(p.standard_price) || 0,
-              premium_price: p.premium_price ? Number(p.premium_price) : null,
-            }))
-          : undefined,
+        pricing: cfg,
       });
     }
     setEditCommunityOpen(false);
   };
+
+  // Per-sport quick edit
+  const [editSportId, setEditSportId] = useState<string | null>(null);
+  const [editSportCfg, setEditSportCfg] = useState<PricingConfig>(defaultPricingConfig());
+  const openEditSport = (sport: any) => {
+    setEditSportCfg(buildPricingConfig(sport));
+    setEditSportId(sport.id);
+  };
+  const handleSaveEditSport = async () => {
+    if (!editSportId) return;
+    const pr = commPricing.find((p) => p.sport_id === editSportId);
+    await updateSportFull.mutateAsync({
+      sport_id: editSportId, community_id: id!, pricing_id: pr?.id ?? null, pricing: editSportCfg,
+    });
+    setEditSportId(null);
+  };
+
+
 
   const allDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -464,11 +441,15 @@ export default function CommunityDetail() {
                           <p className="text-sm text-muted-foreground mt-1">Standard: {formatCurrencyFull(Number(pricing.standard_1month))}/mo | Premium: {formatCurrencyFull(Number(pricing.premium_1month))}/mo</p>
                         )}
                       </div>
-                      <div className="text-right text-sm">
+                      <div className="text-right text-sm flex flex-col items-end gap-1">
                         <p className="font-semibold">👥 {sportStudents.length} • 💰 {formatCurrency(revenue)}</p>
                         <p className="text-muted-foreground">{paid} paid, {pending} pending</p>
+                        <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs text-primary hover:text-primary" onClick={(e) => { e.stopPropagation(); openEditSport(sport); }}>
+                          <Edit2 className="h-3 w-3" /> Edit Pricing
+                        </Button>
                       </div>
                     </div>
+
 
                     {expanded && (
                       <div className="border-t border-border">
@@ -548,7 +529,24 @@ export default function CommunityDetail() {
         </div>
       </div>
 
+      {/* Edit Sport (per-sport pricing) Modal */}
+      <Dialog open={!!editSportId} onOpenChange={(v) => { if (!v) setEditSportId(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Sport Pricing — {commSports.find((s) => s.id === editSportId)?.icon} {commSports.find((s) => s.id === editSportId)?.name}</DialogTitle>
+          </DialogHeader>
+          <SportPricingFields value={editSportCfg} onChange={setEditSportCfg} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditSportId(null)}>Cancel</Button>
+            <Button onClick={handleSaveEditSport} disabled={updateSportFull.isPending}>
+              {updateSportFull.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Saving...</> : "Save Pricing →"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Community Modal */}
+
       <Dialog open={editCommunityOpen} onOpenChange={setEditCommunityOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
           <DialogHeader><DialogTitle>Edit Community — {community.name}</DialogTitle></DialogHeader>

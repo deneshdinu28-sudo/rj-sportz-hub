@@ -2,6 +2,86 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { addMonths, addDays, format } from "date-fns";
+import type { PricingConfig } from "@/components/SportPricingFields";
+
+const num = (v: string | number | null | undefined): number => {
+  if (v === null || v === undefined || v === "") return 0;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+const numOrNull = (v: string | number | null | undefined): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+// Convert a PricingConfig from the UI into rows for sports / sport_pricing / session_pack_pricing.
+// Legacy columns (standard_1month, premium_1month, etc.) are populated with adult values when
+// adults are allowed, otherwise kid values — keeps existing enrollment / payment code working.
+export function pricingConfigToRows(cfg: PricingConfig, community_id: string, sport_id?: string) {
+  const useAdult = cfg.allows_adults;
+  const pick = (k: "standard_1month" | "standard_3months" | "standard_6months" | "premium_1month" | "premium_3months" | "premium_6months") => {
+    const key = k.replace("months", "month") as string;
+    const prefix = useAdult ? "adult_" : "kid_";
+    return num((cfg as any)[`${prefix}${k}`]);
+  };
+  const sportRow: Record<string, any> = {
+    pricing_type: cfg.pricing_type,
+    renewal_trigger: cfg.pricing_type === "custom_monthly" && cfg.renewal_trigger !== "date_based" && cfg.renewal_trigger !== "session_based" ? "session_based" : cfg.renewal_trigger,
+    allows_kids: cfg.allows_kids,
+    allows_adults: cfg.allows_adults,
+    standard_fee: pick("standard_1month"),
+    premium_fee: pick("premium_1month"),
+    kid_custom_monthly_price: cfg.pricing_type === "custom_monthly" ? numOrNull(cfg.kid_custom_monthly_price) : null,
+    kid_custom_monthly_sessions: cfg.pricing_type === "custom_monthly" ? numOrNull(cfg.kid_custom_monthly_sessions) : null,
+    adult_custom_monthly_price: cfg.pricing_type === "custom_monthly" ? numOrNull(cfg.adult_custom_monthly_price) : null,
+    adult_custom_monthly_sessions: cfg.pricing_type === "custom_monthly" ? numOrNull(cfg.adult_custom_monthly_sessions) : null,
+    custom_monthly_price: cfg.pricing_type === "custom_monthly" ? numOrNull(useAdult ? cfg.adult_custom_monthly_price : cfg.kid_custom_monthly_price) : null,
+    custom_monthly_sessions: cfg.pricing_type === "custom_monthly" ? numOrNull(useAdult ? cfg.adult_custom_monthly_sessions : cfg.kid_custom_monthly_sessions) : null,
+    kid_sessions_per_month: cfg.pricing_type === "duration_based" && cfg.renewal_trigger === "session_based" ? numOrNull(cfg.kid_sessions_per_month) : null,
+    adult_sessions_per_month: cfg.pricing_type === "duration_based" && cfg.renewal_trigger === "session_based" ? numOrNull(cfg.adult_sessions_per_month) : null,
+    sessions_per_month: cfg.pricing_type === "duration_based" && cfg.renewal_trigger === "session_based" ? numOrNull(useAdult ? cfg.adult_sessions_per_month : cfg.kid_sessions_per_month) : null,
+    renewal_days: cfg.renewal_trigger === "date_based" && cfg.pricing_type !== "duration_based" ? numOrNull(cfg.renewal_days) : null,
+  };
+  const pricingRow: Record<string, any> = {
+    community_id, sport_id,
+    standard_1month: pick("standard_1month"),
+    standard_3months: pick("standard_3months"),
+    standard_6months: pick("standard_6months"),
+    premium_1month: pick("premium_1month"),
+    premium_3months: pick("premium_3months"),
+    premium_6months: pick("premium_6months"),
+    kid_standard_1month: num(cfg.kid_standard_1month),
+    kid_standard_3month: num(cfg.kid_standard_3months),
+    kid_standard_6month: num(cfg.kid_standard_6months),
+    kid_premium_1month: num(cfg.kid_premium_1month),
+    kid_premium_3month: num(cfg.kid_premium_3months),
+    kid_premium_6month: num(cfg.kid_premium_6months),
+    adult_standard_1month: num(cfg.adult_standard_1month),
+    adult_standard_3month: num(cfg.adult_standard_3months),
+    adult_standard_6month: num(cfg.adult_standard_6months),
+    adult_premium_1month: num(cfg.adult_premium_1month),
+    adult_premium_3month: num(cfg.adult_premium_3months),
+    adult_premium_6month: num(cfg.adult_premium_6months),
+  };
+  const packRows = (cfg.pricing_type === "session_pack" ? cfg.packs : [])
+    .filter((p) => p.pack_name && p.session_count)
+    .map((p) => ({
+      community_id, sport_id,
+      pack_name: p.pack_name,
+      session_count: num(p.session_count),
+      standard_price: num(useAdult ? p.adult_standard_price : p.kid_standard_price),
+      premium_price: numOrNull(useAdult ? p.adult_premium_price : p.kid_premium_price),
+      kid_standard_price: num(p.kid_standard_price),
+      kid_premium_price: numOrNull(p.kid_premium_price),
+      adult_standard_price: num(p.adult_standard_price),
+      adult_premium_price: numOrNull(p.adult_premium_price),
+      is_active: true,
+    }));
+  return { sportRow, pricingRow, packRows };
+}
+
+
 
 // ─── Communities ────────────────────────────────────────────────────
 
@@ -37,14 +117,7 @@ export function useCreateCommunity() {
       sports: Array<{
         sportName: string; sportIcon: string; coach_name: string; coach_phone: string;
         coach_ids?: string[];
-        pricing_type: "duration_based" | "custom_monthly" | "session_pack";
-        renewal_trigger: "date_based" | "session_based";
-        standard_1month: number; standard_3months: number; standard_6months: number;
-        premium_1month: number; premium_3months: number; premium_6months: number;
-        sessions_per_month?: number | null;
-        custom_monthly_price?: number | null;
-        custom_monthly_sessions?: number | null;
-        packs?: Array<{ pack_name: string; session_count: number; standard_price: number; premium_price: number | null }>;
+        pricing: PricingConfig;
       }>;
     }) => {
       const { data: community, error: cErr } = await supabase.from("communities").insert({
@@ -53,45 +126,32 @@ export function useCreateCommunity() {
       }).select().single();
       if (cErr) throw cErr;
       for (const s of input.sports) {
+        const { sportRow, pricingRow, packRows } = pricingConfigToRows(s.pricing, community.id);
         const { data: sport, error: sErr } = await supabase.from("sports").insert({
           name: s.sportName, icon: s.sportIcon, community_id: community.id,
           coach_name: s.coach_name, coach_phone: s.coach_phone,
-          standard_fee: s.standard_1month, premium_fee: s.premium_1month,
-          pricing_type: s.pricing_type,
-          renewal_trigger: s.renewal_trigger,
-          custom_monthly_price: s.custom_monthly_price ?? null,
-          custom_monthly_sessions: s.custom_monthly_sessions ?? null,
-          sessions_per_month: s.sessions_per_month ?? null,
-        }).select().single();
+          ...sportRow,
+        } as any).select().single();
         if (sErr) throw sErr;
-        const { error: pErr } = await supabase.from("sport_pricing").insert({
-          community_id: community.id, sport_id: sport.id,
-          standard_1month: s.standard_1month, standard_3months: s.standard_3months, standard_6months: s.standard_6months,
-          premium_1month: s.premium_1month, premium_3months: s.premium_3months, premium_6months: s.premium_6months,
-        });
+        const { error: pErr } = await supabase.from("sport_pricing").insert({ ...pricingRow, sport_id: sport.id } as any);
         if (pErr) throw pErr;
-        if (s.pricing_type === "session_pack" && s.packs && s.packs.length > 0) {
+        if (packRows.length > 0) {
           const { error: packErr } = await supabase.from("session_pack_pricing").insert(
-            s.packs.map((p) => ({
-              sport_id: sport.id, community_id: community.id,
-              pack_name: p.pack_name, session_count: p.session_count,
-              standard_price: p.standard_price, premium_price: p.premium_price,
-              is_active: true,
-            }))
+            packRows.map((p) => ({ ...p, sport_id: sport.id })) as any
           );
           if (packErr) throw packErr;
         }
-        // Create coach_assignments for each selected coach
+
         if (s.coach_ids && s.coach_ids.length > 0) {
-          const assignments = s.coach_ids.map((coach_id) => ({
-            coach_id, community_id: community.id, sport_id: sport.id,
-          }));
-          const { error: aErr } = await supabase.from("coach_assignments").insert(assignments);
+          const { error: aErr } = await supabase.from("coach_assignments").insert(
+            s.coach_ids.map((coach_id) => ({ coach_id, community_id: community.id, sport_id: sport.id }))
+          );
           if (aErr) throw aErr;
         }
       }
       return community;
     },
+
     onSuccess: (data) => { qc.invalidateQueries({ queryKey: ["communities"] }); toast({ title: "Community created!", description: data.name }); },
     onError: (err: Error) => { toast({ title: "Failed to create community", description: err.message, variant: "destructive" }); },
   });
@@ -163,45 +223,26 @@ export function useCreateSport() {
   return useMutation({
     mutationFn: async (input: {
       name: string; icon: string; community_id: string; coach_name: string; coach_phone: string;
-      pricing_type: "duration_based" | "custom_monthly" | "session_pack";
-      renewal_trigger: "date_based" | "session_based";
-      standard_1month: number; standard_3months: number; standard_6months: number;
-      premium_1month: number; premium_3months: number; premium_6months: number;
-      sessions_per_month?: number | null;
-      custom_monthly_price?: number | null;
-      custom_monthly_sessions?: number | null;
-      packs?: Array<{ pack_name: string; session_count: number; standard_price: number; premium_price: number | null }>;
+      pricing: PricingConfig;
     }) => {
+      const { sportRow, pricingRow, packRows } = pricingConfigToRows(input.pricing, input.community_id);
       const { data: sport, error: sErr } = await supabase.from("sports").insert({
         name: input.name, icon: input.icon, community_id: input.community_id,
         coach_name: input.coach_name, coach_phone: input.coach_phone,
-        standard_fee: input.standard_1month, premium_fee: input.premium_1month,
-        pricing_type: input.pricing_type,
-        renewal_trigger: input.renewal_trigger,
-        custom_monthly_price: input.custom_monthly_price ?? null,
-        custom_monthly_sessions: input.custom_monthly_sessions ?? null,
-        sessions_per_month: input.sessions_per_month ?? null,
-      }).select().single();
+        ...sportRow,
+      } as any).select().single();
       if (sErr) throw sErr;
-      const { error: pErr } = await supabase.from("sport_pricing").insert({
-        community_id: input.community_id, sport_id: sport.id,
-        standard_1month: input.standard_1month, standard_3months: input.standard_3months, standard_6months: input.standard_6months,
-        premium_1month: input.premium_1month, premium_3months: input.premium_3months, premium_6months: input.premium_6months,
-      });
+      const { error: pErr } = await supabase.from("sport_pricing").insert({ ...pricingRow, sport_id: sport.id } as any);
       if (pErr) throw pErr;
-      if (input.pricing_type === "session_pack" && input.packs && input.packs.length > 0) {
+      if (packRows.length > 0) {
         const { error: packErr } = await supabase.from("session_pack_pricing").insert(
-          input.packs.map((p) => ({
-            sport_id: sport.id, community_id: input.community_id,
-            pack_name: p.pack_name, session_count: p.session_count,
-            standard_price: p.standard_price, premium_price: p.premium_price,
-            is_active: true,
-          }))
+          packRows.map((p) => ({ ...p, sport_id: sport.id })) as any
         );
         if (packErr) throw packErr;
       }
       return sport;
     },
+
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["sports", vars.community_id] });
       qc.invalidateQueries({ queryKey: ["community", vars.community_id] });
@@ -236,64 +277,36 @@ export function useUpdateSportFull() {
     mutationFn: async (input: {
       sport_id: string;
       community_id: string;
-      pricing_type: "duration_based" | "custom_monthly" | "session_pack";
-      renewal_trigger: "date_based" | "session_based";
       pricing_id?: string | null;
-      standard_1month: number; standard_3months: number; standard_6months: number;
-      premium_1month: number; premium_3months: number; premium_6months: number;
-      sessions_per_month?: number | null;
-      custom_monthly_price?: number | null;
-      custom_monthly_sessions?: number | null;
-      packs?: Array<{ pack_name: string; session_count: number; standard_price: number; premium_price: number | null }>;
+      pricing: PricingConfig;
     }) => {
+      const { sportRow, pricingRow, packRows } = pricingConfigToRows(input.pricing, input.community_id, input.sport_id);
       // Update sport row
-      const { error: sErr } = await supabase.from("sports").update({
-        pricing_type: input.pricing_type,
-        renewal_trigger: input.renewal_trigger,
-        custom_monthly_price: input.custom_monthly_price ?? null,
-        custom_monthly_sessions: input.custom_monthly_sessions ?? null,
-        sessions_per_month: input.sessions_per_month ?? null,
-        standard_fee: input.standard_1month,
-        premium_fee: input.premium_1month,
-      }).eq("id", input.sport_id);
+      const { error: sErr } = await supabase.from("sports").update(sportRow as any).eq("id", input.sport_id);
       if (sErr) throw sErr;
 
-      // Update sport_pricing row (create one if missing)
+      // Upsert sport_pricing
       if (input.pricing_id) {
-        const { error } = await supabase.from("sport_pricing").update({
-          standard_1month: input.standard_1month, standard_3months: input.standard_3months, standard_6months: input.standard_6months,
-          premium_1month: input.premium_1month, premium_3months: input.premium_3months, premium_6months: input.premium_6months,
-        }).eq("id", input.pricing_id);
+        const { error } = await supabase.from("sport_pricing").update(pricingRow as any).eq("id", input.pricing_id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("sport_pricing").insert({
-          community_id: input.community_id, sport_id: input.sport_id,
-          standard_1month: input.standard_1month, standard_3months: input.standard_3months, standard_6months: input.standard_6months,
-          premium_1month: input.premium_1month, premium_3months: input.premium_3months, premium_6months: input.premium_6months,
-        });
+        const { error } = await supabase.from("sport_pricing").insert(pricingRow as any);
         if (error) throw error;
       }
 
-      // Replace session packs (simple: deactivate old, insert new) — only when pricing_type is session_pack
-      if (input.pricing_type === "session_pack") {
+      // Replace session packs
+      if (input.pricing.pricing_type === "session_pack") {
         const { error: delErr } = await supabase.from("session_pack_pricing").delete().eq("sport_id", input.sport_id);
         if (delErr) throw delErr;
-        if (input.packs && input.packs.length > 0) {
-          const { error: insErr } = await supabase.from("session_pack_pricing").insert(
-            input.packs.map((p) => ({
-              sport_id: input.sport_id, community_id: input.community_id,
-              pack_name: p.pack_name, session_count: p.session_count,
-              standard_price: p.standard_price, premium_price: p.premium_price,
-              is_active: true,
-            }))
-          );
+        if (packRows.length > 0) {
+          const { error: insErr } = await supabase.from("session_pack_pricing").insert(packRows as any);
           if (insErr) throw insErr;
         }
       } else {
-        // Deactivate any existing packs if user switched away from session_pack
         await supabase.from("session_pack_pricing").update({ is_active: false }).eq("sport_id", input.sport_id);
       }
     },
+
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["sports", vars.community_id] });
       qc.invalidateQueries({ queryKey: ["sportPricing", vars.community_id] });

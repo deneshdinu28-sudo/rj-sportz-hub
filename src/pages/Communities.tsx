@@ -120,30 +120,12 @@ export default function Communities() {
         coach_name: sp.coach_name,
         coach_phone: sp.coach_phone,
         coach_ids: sp.coach_ids,
-        pricing_type: sp.pricing.pricing_type,
-        renewal_trigger: sp.pricing.pricing_type === "custom_monthly" ? "session_based" : sp.pricing.renewal_trigger,
-        standard_1month: Number(sp.pricing.standard_1month) || 0,
-        standard_3months: Number(sp.pricing.standard_3months) || 0,
-        standard_6months: Number(sp.pricing.standard_6months) || 0,
-        premium_1month: Number(sp.pricing.premium_1month) || 0,
-        premium_3months: Number(sp.pricing.premium_3months) || 0,
-        premium_6months: Number(sp.pricing.premium_6months) || 0,
-        sessions_per_month: sp.pricing.pricing_type === "duration_based" && sp.pricing.renewal_trigger === "session_based"
-          ? Number(sp.pricing.sessions_per_month) || null : null,
-        custom_monthly_price: sp.pricing.pricing_type === "custom_monthly" ? Number(sp.pricing.custom_monthly_price) || null : null,
-        custom_monthly_sessions: sp.pricing.pricing_type === "custom_monthly" ? Number(sp.pricing.custom_monthly_sessions) || null : null,
-        packs: sp.pricing.pricing_type === "session_pack"
-          ? sp.pricing.packs.filter((p) => p.pack_name && p.session_count).map((p) => ({
-              pack_name: p.pack_name,
-              session_count: Number(p.session_count) || 0,
-              standard_price: Number(p.standard_price) || 0,
-              premium_price: p.premium_price ? Number(p.premium_price) : null,
-            }))
-          : undefined,
+        pricing: sp.pricing,
       })),
     });
     setAddOpen(false);
   };
+
 
   const handleDelete = async () => {
     if (!deleteCommunityId) return;
@@ -292,21 +274,25 @@ export default function Communities() {
                   <Button variant="ghost" size="sm" onClick={() => handleRemoveSportPricing(idx)} className="text-destructive h-7">×</Button>
                 </div>
                 <p className="text-xs text-muted-foreground">Coach: {sp.coach_name || "—"}{sp.coach_phone ? ` • ${sp.coach_phone}` : ""}{sp.coach_ids.length > 0 ? ` (${sp.coach_ids.length} assigned)` : ""}</p>
-                <p className="text-xs text-primary mt-1 capitalize">{sp.pricing.pricing_type.replace("_", " ")} • {sp.pricing.pricing_type === "custom_monthly" ? "session based" : sp.pricing.renewal_trigger.replace("_", " ")}</p>
+                <p className="text-xs text-primary mt-1 capitalize">{sp.pricing.pricing_type.replace("_", " ")} • {sp.pricing.renewal_trigger.replace("_", " ")} • {sp.pricing.allows_kids && sp.pricing.allows_adults ? "Kids + Adults" : "Adults Only"}</p>
                 <div className="text-sm text-muted-foreground space-y-1 mt-1">
                   {sp.pricing.pricing_type === "duration_based" && (
                     <>
-                      <p>Standard: 1M ₹{sp.pricing.standard_1month} | 3M ₹{sp.pricing.standard_3months} | 6M ₹{sp.pricing.standard_6months}</p>
-                      <p>Premium: 1M ₹{sp.pricing.premium_1month} | 3M ₹{sp.pricing.premium_3months} | 6M ₹{sp.pricing.premium_6months}</p>
+                      {sp.pricing.allows_kids && <p>Kid Std: 1M ₹{sp.pricing.kid_standard_1month} | 3M ₹{sp.pricing.kid_standard_3months} | 6M ₹{sp.pricing.kid_standard_6months}</p>}
+                      {sp.pricing.allows_adults && <p>Adult Std: 1M ₹{sp.pricing.adult_standard_1month} | 3M ₹{sp.pricing.adult_standard_3months} | 6M ₹{sp.pricing.adult_standard_6months}</p>}
                     </>
                   )}
                   {sp.pricing.pricing_type === "custom_monthly" && (
-                    <p>₹{sp.pricing.custom_monthly_price} / month • {sp.pricing.custom_monthly_sessions} sessions</p>
+                    <>
+                      {sp.pricing.allows_kids && <p>Kid: ₹{sp.pricing.kid_custom_monthly_price}/mo • {sp.pricing.kid_custom_monthly_sessions} sessions</p>}
+                      {sp.pricing.allows_adults && <p>Adult: ₹{sp.pricing.adult_custom_monthly_price}/mo • {sp.pricing.adult_custom_monthly_sessions} sessions</p>}
+                    </>
                   )}
                   {sp.pricing.pricing_type === "session_pack" && (
                     <p>{sp.pricing.packs.length} pack{sp.pricing.packs.length === 1 ? "" : "s"}: {sp.pricing.packs.map((p) => `${p.pack_name} (${p.session_count}s)`).join(", ")}</p>
                   )}
                 </div>
+
               </div>
             ))}
           </div>
