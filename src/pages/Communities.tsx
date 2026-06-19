@@ -467,21 +467,10 @@ export default function Communities() {
             </div>
 
             <div className="border-t border-border pt-3">
-              <p className="text-sm font-semibold mb-3">STANDARD BATCH PRICING</p>
-              <div className="grid grid-cols-3 gap-2">
-                <div><Label className="text-xs">1 Month</Label><Input type="number" value={newSportPricing.standard_1month} onChange={(e) => setNewSportPricing((p) => ({ ...p, standard_1month: e.target.value }))} /></div>
-                <div><Label className="text-xs">3 Months</Label><Input type="number" value={newSportPricing.standard_3months} onChange={(e) => setNewSportPricing((p) => ({ ...p, standard_3months: e.target.value }))} /></div>
-                <div><Label className="text-xs">6 Months</Label><Input type="number" value={newSportPricing.standard_6months} onChange={(e) => setNewSportPricing((p) => ({ ...p, standard_6months: e.target.value }))} /></div>
-              </div>
-            </div>
-
-            <div className="border-t border-border pt-3">
-              <p className="text-sm font-semibold mb-3">PREMIUM BATCH PRICING</p>
-              <div className="grid grid-cols-3 gap-2">
-                <div><Label className="text-xs">1 Month</Label><Input type="number" value={newSportPricing.premium_1month} onChange={(e) => setNewSportPricing((p) => ({ ...p, premium_1month: e.target.value }))} /></div>
-                <div><Label className="text-xs">3 Months</Label><Input type="number" value={newSportPricing.premium_3months} onChange={(e) => setNewSportPricing((p) => ({ ...p, premium_3months: e.target.value }))} /></div>
-                <div><Label className="text-xs">6 Months</Label><Input type="number" value={newSportPricing.premium_6months} onChange={(e) => setNewSportPricing((p) => ({ ...p, premium_6months: e.target.value }))} /></div>
-              </div>
+              <SportPricingFields
+                value={newSportPricing.pricing}
+                onChange={(pricing) => setNewSportPricing((p) => ({ ...p, pricing }))}
+              />
             </div>
           </div>
           <DialogFooter>
