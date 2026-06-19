@@ -44,8 +44,7 @@ export default function Communities() {
   const [addSportPricingOpen, setAddSportPricingOpen] = useState(false);
   const [newSportPricing, setNewSportPricing] = useState<SportPricingEntry>({
     sportName: "", sportIcon: "", coach_name: "", coach_phone: "", coach_ids: [],
-    standard_1month: "3000", standard_3months: "8500", standard_6months: "16000",
-    premium_1month: "4500", premium_3months: "12500", premium_6months: "24000",
+    pricing: defaultPricingConfig(),
   });
   const [isCustomSport, setIsCustomSport] = useState(false);
   const [customSportName, setCustomSportName] = useState("");
