@@ -277,64 +277,36 @@ export function useUpdateSportFull() {
     mutationFn: async (input: {
       sport_id: string;
       community_id: string;
-      pricing_type: "duration_based" | "custom_monthly" | "session_pack";
-      renewal_trigger: "date_based" | "session_based";
       pricing_id?: string | null;
-      standard_1month: number; standard_3months: number; standard_6months: number;
-      premium_1month: number; premium_3months: number; premium_6months: number;
-      sessions_per_month?: number | null;
-      custom_monthly_price?: number | null;
-      custom_monthly_sessions?: number | null;
-      packs?: Array<{ pack_name: string; session_count: number; standard_price: number; premium_price: number | null }>;
+      pricing: PricingConfig;
     }) => {
+      const { sportRow, pricingRow, packRows } = pricingConfigToRows(input.pricing, input.community_id, input.sport_id);
       // Update sport row
-      const { error: sErr } = await supabase.from("sports").update({
-        pricing_type: input.pricing_type,
-        renewal_trigger: input.renewal_trigger,
-        custom_monthly_price: input.custom_monthly_price ?? null,
-        custom_monthly_sessions: input.custom_monthly_sessions ?? null,
-        sessions_per_month: input.sessions_per_month ?? null,
-        standard_fee: input.standard_1month,
-        premium_fee: input.premium_1month,
-      }).eq("id", input.sport_id);
+      const { error: sErr } = await supabase.from("sports").update(sportRow as any).eq("id", input.sport_id);
       if (sErr) throw sErr;
 
-      // Update sport_pricing row (create one if missing)
+      // Upsert sport_pricing
       if (input.pricing_id) {
-        const { error } = await supabase.from("sport_pricing").update({
-          standard_1month: input.standard_1month, standard_3months: input.standard_3months, standard_6months: input.standard_6months,
-          premium_1month: input.premium_1month, premium_3months: input.premium_3months, premium_6months: input.premium_6months,
-        }).eq("id", input.pricing_id);
+        const { error } = await supabase.from("sport_pricing").update(pricingRow as any).eq("id", input.pricing_id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("sport_pricing").insert({
-          community_id: input.community_id, sport_id: input.sport_id,
-          standard_1month: input.standard_1month, standard_3months: input.standard_3months, standard_6months: input.standard_6months,
-          premium_1month: input.premium_1month, premium_3months: input.premium_3months, premium_6months: input.premium_6months,
-        });
+        const { error } = await supabase.from("sport_pricing").insert(pricingRow as any);
         if (error) throw error;
       }
 
-      // Replace session packs (simple: deactivate old, insert new) — only when pricing_type is session_pack
-      if (input.pricing_type === "session_pack") {
+      // Replace session packs
+      if (input.pricing.pricing_type === "session_pack") {
         const { error: delErr } = await supabase.from("session_pack_pricing").delete().eq("sport_id", input.sport_id);
         if (delErr) throw delErr;
-        if (input.packs && input.packs.length > 0) {
-          const { error: insErr } = await supabase.from("session_pack_pricing").insert(
-            input.packs.map((p) => ({
-              sport_id: input.sport_id, community_id: input.community_id,
-              pack_name: p.pack_name, session_count: p.session_count,
-              standard_price: p.standard_price, premium_price: p.premium_price,
-              is_active: true,
-            }))
-          );
+        if (packRows.length > 0) {
+          const { error: insErr } = await supabase.from("session_pack_pricing").insert(packRows as any);
           if (insErr) throw insErr;
         }
       } else {
-        // Deactivate any existing packs if user switched away from session_pack
         await supabase.from("session_pack_pricing").update({ is_active: false }).eq("sport_id", input.sport_id);
       }
     },
+
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["sports", vars.community_id] });
       qc.invalidateQueries({ queryKey: ["sportPricing", vars.community_id] });
