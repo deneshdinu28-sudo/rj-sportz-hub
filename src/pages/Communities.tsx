@@ -120,30 +120,12 @@ export default function Communities() {
         coach_name: sp.coach_name,
         coach_phone: sp.coach_phone,
         coach_ids: sp.coach_ids,
-        pricing_type: sp.pricing.pricing_type,
-        renewal_trigger: sp.pricing.pricing_type === "custom_monthly" ? "session_based" : sp.pricing.renewal_trigger,
-        standard_1month: Number(sp.pricing.standard_1month) || 0,
-        standard_3months: Number(sp.pricing.standard_3months) || 0,
-        standard_6months: Number(sp.pricing.standard_6months) || 0,
-        premium_1month: Number(sp.pricing.premium_1month) || 0,
-        premium_3months: Number(sp.pricing.premium_3months) || 0,
-        premium_6months: Number(sp.pricing.premium_6months) || 0,
-        sessions_per_month: sp.pricing.pricing_type === "duration_based" && sp.pricing.renewal_trigger === "session_based"
-          ? Number(sp.pricing.sessions_per_month) || null : null,
-        custom_monthly_price: sp.pricing.pricing_type === "custom_monthly" ? Number(sp.pricing.custom_monthly_price) || null : null,
-        custom_monthly_sessions: sp.pricing.pricing_type === "custom_monthly" ? Number(sp.pricing.custom_monthly_sessions) || null : null,
-        packs: sp.pricing.pricing_type === "session_pack"
-          ? sp.pricing.packs.filter((p) => p.pack_name && p.session_count).map((p) => ({
-              pack_name: p.pack_name,
-              session_count: Number(p.session_count) || 0,
-              standard_price: Number(p.standard_price) || 0,
-              premium_price: p.premium_price ? Number(p.premium_price) : null,
-            }))
-          : undefined,
+        pricing: sp.pricing,
       })),
     });
     setAddOpen(false);
   };
+
 
   const handleDelete = async () => {
     if (!deleteCommunityId) return;
