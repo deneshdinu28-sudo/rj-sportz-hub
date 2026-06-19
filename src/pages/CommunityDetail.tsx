@@ -256,18 +256,37 @@ export default function CommunityDetail() {
       contact_person: community.contact_person,
       contact_phone: community.contact_phone,
     });
-    const pricingMap: typeof editPricingForms = {};
-    commPricing.forEach((p) => {
-      pricingMap[p.id] = {
-        standard_1month: String(p.standard_1month),
-        standard_3months: String(p.standard_3months),
-        standard_6months: String(p.standard_6months),
-        premium_1month: String(p.premium_1month),
-        premium_3months: String(p.premium_3months),
-        premium_6months: String(p.premium_6months),
+    // Build per-sport pricing config combining sport row + sport_pricing + session packs
+    const configs: Record<string, PricingConfig> = {};
+    commSports.forEach((sport: any) => {
+      const pr = commPricing.find((p) => p.sport_id === sport.id);
+      const sportPacks = commPacks.filter((pk: any) => pk.sport_id === sport.id);
+      const def = defaultPricingConfig();
+      configs[sport.id] = {
+        ...def,
+        pricing_type: (sport.pricing_type as any) ?? "duration_based",
+        renewal_trigger: (sport.renewal_trigger as any) ?? "date_based",
+        standard_1month: String(pr?.standard_1month ?? def.standard_1month),
+        standard_3months: String(pr?.standard_3months ?? def.standard_3months),
+        standard_6months: String(pr?.standard_6months ?? def.standard_6months),
+        premium_1month: String(pr?.premium_1month ?? def.premium_1month),
+        premium_3months: String(pr?.premium_3months ?? def.premium_3months),
+        premium_6months: String(pr?.premium_6months ?? def.premium_6months),
+        sessions_per_month: sport.sessions_per_month != null ? String(sport.sessions_per_month) : def.sessions_per_month,
+        custom_monthly_price: sport.custom_monthly_price != null ? String(sport.custom_monthly_price) : def.custom_monthly_price,
+        custom_monthly_sessions: sport.custom_monthly_sessions != null ? String(sport.custom_monthly_sessions) : def.custom_monthly_sessions,
+        packs: sportPacks.length > 0
+          ? sportPacks.map((pk: any) => ({
+              pack_name: pk.pack_name,
+              session_count: String(pk.session_count),
+              standard_price: String(pk.standard_price),
+              premium_price: pk.premium_price != null ? String(pk.premium_price) : "",
+            }))
+          : def.packs,
+        renewal_days: def.renewal_days,
       };
     });
-    setEditPricingForms(pricingMap);
+    setEditSportConfigs(configs);
     setEditCommunityOpen(true);
   };
 
@@ -280,17 +299,34 @@ export default function CommunityDetail() {
       contact_person: editForm.contact_person,
       contact_phone: editForm.contact_phone,
     });
-    // Update pricing for each sport
-    for (const [pricingId, values] of Object.entries(editPricingForms)) {
-      await updateSportPricing.mutateAsync({
-        id: pricingId,
+    // Update each sport
+    for (const sport of commSports) {
+      const cfg = editSportConfigs[sport.id];
+      if (!cfg) continue;
+      const pr = commPricing.find((p) => p.sport_id === sport.id);
+      await updateSportFull.mutateAsync({
+        sport_id: sport.id,
         community_id: id!,
-        standard_1month: Number(values.standard_1month),
-        standard_3months: Number(values.standard_3months),
-        standard_6months: Number(values.standard_6months),
-        premium_1month: Number(values.premium_1month),
-        premium_3months: Number(values.premium_3months),
-        premium_6months: Number(values.premium_6months),
+        pricing_id: pr?.id ?? null,
+        pricing_type: cfg.pricing_type,
+        renewal_trigger: cfg.pricing_type === "custom_monthly" ? "session_based" : cfg.renewal_trigger,
+        standard_1month: Number(cfg.standard_1month) || 0,
+        standard_3months: Number(cfg.standard_3months) || 0,
+        standard_6months: Number(cfg.standard_6months) || 0,
+        premium_1month: Number(cfg.premium_1month) || 0,
+        premium_3months: Number(cfg.premium_3months) || 0,
+        premium_6months: Number(cfg.premium_6months) || 0,
+        sessions_per_month: cfg.pricing_type === "duration_based" && cfg.renewal_trigger === "session_based" ? Number(cfg.sessions_per_month) || null : null,
+        custom_monthly_price: cfg.pricing_type === "custom_monthly" ? Number(cfg.custom_monthly_price) || null : null,
+        custom_monthly_sessions: cfg.pricing_type === "custom_monthly" ? Number(cfg.custom_monthly_sessions) || null : null,
+        packs: cfg.pricing_type === "session_pack"
+          ? cfg.packs.filter((p) => p.pack_name && p.session_count).map((p) => ({
+              pack_name: p.pack_name,
+              session_count: Number(p.session_count) || 0,
+              standard_price: Number(p.standard_price) || 0,
+              premium_price: p.premium_price ? Number(p.premium_price) : null,
+            }))
+          : undefined,
       });
     }
     setEditCommunityOpen(false);
