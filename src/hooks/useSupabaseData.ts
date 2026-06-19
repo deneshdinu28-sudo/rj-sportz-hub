@@ -131,16 +131,17 @@ export function useCreateCommunity() {
           name: s.sportName, icon: s.sportIcon, community_id: community.id,
           coach_name: s.coach_name, coach_phone: s.coach_phone,
           ...sportRow,
-        }).select().single();
+        } as any).select().single();
         if (sErr) throw sErr;
-        const { error: pErr } = await supabase.from("sport_pricing").insert({ ...pricingRow, sport_id: sport.id });
+        const { error: pErr } = await supabase.from("sport_pricing").insert({ ...pricingRow, sport_id: sport.id } as any);
         if (pErr) throw pErr;
         if (packRows.length > 0) {
           const { error: packErr } = await supabase.from("session_pack_pricing").insert(
-            packRows.map((p) => ({ ...p, sport_id: sport.id }))
+            packRows.map((p) => ({ ...p, sport_id: sport.id })) as any
           );
           if (packErr) throw packErr;
         }
+
         if (s.coach_ids && s.coach_ids.length > 0) {
           const { error: aErr } = await supabase.from("coach_assignments").insert(
             s.coach_ids.map((coach_id) => ({ coach_id, community_id: community.id, sport_id: sport.id }))
