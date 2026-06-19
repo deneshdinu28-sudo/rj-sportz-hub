@@ -218,44 +218,55 @@ export default function CommunityDetail() {
     setAddSlotOpen(false);
   };
 
+  const buildPricingConfig = (sport: any): PricingConfig => {
+    const pr: any = commPricing.find((p) => p.sport_id === sport.id);
+    const sportPacks: any[] = commPacks.filter((pk: any) => pk.sport_id === sport.id);
+    const def = defaultPricingConfig();
+    const str = (v: any, fallback: string) => v != null ? String(v) : fallback;
+    return {
+      allows_kids: sport.allows_kids ?? true,
+      allows_adults: sport.allows_adults ?? true,
+      pricing_type: (sport.pricing_type as any) ?? "duration_based",
+      renewal_trigger: (sport.renewal_trigger as any) ?? "date_based",
+      kid_standard_1month: str(pr?.kid_standard_1month ?? pr?.standard_1month, def.kid_standard_1month),
+      kid_standard_3months: str(pr?.kid_standard_3month ?? pr?.standard_3months, def.kid_standard_3months),
+      kid_standard_6months: str(pr?.kid_standard_6month ?? pr?.standard_6months, def.kid_standard_6months),
+      kid_premium_1month: str(pr?.kid_premium_1month ?? pr?.premium_1month, def.kid_premium_1month),
+      kid_premium_3months: str(pr?.kid_premium_3month ?? pr?.premium_3months, def.kid_premium_3months),
+      kid_premium_6months: str(pr?.kid_premium_6month ?? pr?.premium_6months, def.kid_premium_6months),
+      adult_standard_1month: str(pr?.adult_standard_1month ?? pr?.standard_1month, def.adult_standard_1month),
+      adult_standard_3months: str(pr?.adult_standard_3month ?? pr?.standard_3months, def.adult_standard_3months),
+      adult_standard_6months: str(pr?.adult_standard_6month ?? pr?.standard_6months, def.adult_standard_6months),
+      adult_premium_1month: str(pr?.adult_premium_1month ?? pr?.premium_1month, def.adult_premium_1month),
+      adult_premium_3months: str(pr?.adult_premium_3month ?? pr?.premium_3months, def.adult_premium_3months),
+      adult_premium_6months: str(pr?.adult_premium_6month ?? pr?.premium_6months, def.adult_premium_6months),
+      kid_sessions_per_month: str(sport.kid_sessions_per_month ?? sport.sessions_per_month, def.kid_sessions_per_month),
+      adult_sessions_per_month: str(sport.adult_sessions_per_month ?? sport.sessions_per_month, def.adult_sessions_per_month),
+      kid_custom_monthly_price: str(sport.kid_custom_monthly_price ?? sport.custom_monthly_price, def.kid_custom_monthly_price),
+      kid_custom_monthly_sessions: str(sport.kid_custom_monthly_sessions ?? sport.custom_monthly_sessions, def.kid_custom_monthly_sessions),
+      adult_custom_monthly_price: str(sport.adult_custom_monthly_price ?? sport.custom_monthly_price, def.adult_custom_monthly_price),
+      adult_custom_monthly_sessions: str(sport.adult_custom_monthly_sessions ?? sport.custom_monthly_sessions, def.adult_custom_monthly_sessions),
+      renewal_days: str(sport.renewal_days, def.renewal_days),
+      packs: sportPacks.length > 0
+        ? sportPacks.map((pk: any) => ({
+            pack_name: pk.pack_name,
+            session_count: String(pk.session_count),
+            kid_standard_price: str(pk.kid_standard_price ?? pk.standard_price, ""),
+            kid_premium_price: str(pk.kid_premium_price ?? pk.premium_price, ""),
+            adult_standard_price: str(pk.adult_standard_price ?? pk.standard_price, ""),
+            adult_premium_price: str(pk.adult_premium_price ?? pk.premium_price, ""),
+          }))
+        : def.packs,
+    };
+  };
+
   const openEditCommunity = () => {
     setEditForm({
-      name: community.name,
-      short_code: community.short_code,
-      address: community.address,
-      contact_person: community.contact_person,
-      contact_phone: community.contact_phone,
+      name: community.name, short_code: community.short_code, address: community.address,
+      contact_person: community.contact_person, contact_phone: community.contact_phone,
     });
-    // Build per-sport pricing config combining sport row + sport_pricing + session packs
     const configs: Record<string, PricingConfig> = {};
-    commSports.forEach((sport: any) => {
-      const pr = commPricing.find((p) => p.sport_id === sport.id);
-      const sportPacks = commPacks.filter((pk: any) => pk.sport_id === sport.id);
-      const def = defaultPricingConfig();
-      configs[sport.id] = {
-        ...def,
-        pricing_type: (sport.pricing_type as any) ?? "duration_based",
-        renewal_trigger: (sport.renewal_trigger as any) ?? "date_based",
-        standard_1month: String(pr?.standard_1month ?? def.standard_1month),
-        standard_3months: String(pr?.standard_3months ?? def.standard_3months),
-        standard_6months: String(pr?.standard_6months ?? def.standard_6months),
-        premium_1month: String(pr?.premium_1month ?? def.premium_1month),
-        premium_3months: String(pr?.premium_3months ?? def.premium_3months),
-        premium_6months: String(pr?.premium_6months ?? def.premium_6months),
-        sessions_per_month: sport.sessions_per_month != null ? String(sport.sessions_per_month) : def.sessions_per_month,
-        custom_monthly_price: sport.custom_monthly_price != null ? String(sport.custom_monthly_price) : def.custom_monthly_price,
-        custom_monthly_sessions: sport.custom_monthly_sessions != null ? String(sport.custom_monthly_sessions) : def.custom_monthly_sessions,
-        packs: sportPacks.length > 0
-          ? sportPacks.map((pk: any) => ({
-              pack_name: pk.pack_name,
-              session_count: String(pk.session_count),
-              standard_price: String(pk.standard_price),
-              premium_price: pk.premium_price != null ? String(pk.premium_price) : "",
-            }))
-          : def.packs,
-        renewal_days: def.renewal_days,
-      };
-    });
+    commSports.forEach((sport: any) => { configs[sport.id] = buildPricingConfig(sport); });
     setEditSportConfigs(configs);
     setEditCommunityOpen(true);
   };
@@ -263,13 +274,9 @@ export default function CommunityDetail() {
   const handleUpdateCommunity = async () => {
     await updateCommunity.mutateAsync({
       id: id!,
-      name: editForm.name,
-      short_code: editForm.short_code,
-      address: editForm.address,
-      contact_person: editForm.contact_person,
-      contact_phone: editForm.contact_phone,
+      name: editForm.name, short_code: editForm.short_code, address: editForm.address,
+      contact_person: editForm.contact_person, contact_phone: editForm.contact_phone,
     });
-    // Update each sport
     for (const sport of commSports) {
       const cfg = editSportConfigs[sport.id];
       if (!cfg) continue;
@@ -278,29 +285,29 @@ export default function CommunityDetail() {
         sport_id: sport.id,
         community_id: id!,
         pricing_id: pr?.id ?? null,
-        pricing_type: cfg.pricing_type,
-        renewal_trigger: cfg.pricing_type === "custom_monthly" ? "session_based" : cfg.renewal_trigger,
-        standard_1month: Number(cfg.standard_1month) || 0,
-        standard_3months: Number(cfg.standard_3months) || 0,
-        standard_6months: Number(cfg.standard_6months) || 0,
-        premium_1month: Number(cfg.premium_1month) || 0,
-        premium_3months: Number(cfg.premium_3months) || 0,
-        premium_6months: Number(cfg.premium_6months) || 0,
-        sessions_per_month: cfg.pricing_type === "duration_based" && cfg.renewal_trigger === "session_based" ? Number(cfg.sessions_per_month) || null : null,
-        custom_monthly_price: cfg.pricing_type === "custom_monthly" ? Number(cfg.custom_monthly_price) || null : null,
-        custom_monthly_sessions: cfg.pricing_type === "custom_monthly" ? Number(cfg.custom_monthly_sessions) || null : null,
-        packs: cfg.pricing_type === "session_pack"
-          ? cfg.packs.filter((p) => p.pack_name && p.session_count).map((p) => ({
-              pack_name: p.pack_name,
-              session_count: Number(p.session_count) || 0,
-              standard_price: Number(p.standard_price) || 0,
-              premium_price: p.premium_price ? Number(p.premium_price) : null,
-            }))
-          : undefined,
+        pricing: cfg,
       });
     }
     setEditCommunityOpen(false);
   };
+
+  // Per-sport quick edit
+  const [editSportId, setEditSportId] = useState<string | null>(null);
+  const [editSportCfg, setEditSportCfg] = useState<PricingConfig>(defaultPricingConfig());
+  const openEditSport = (sport: any) => {
+    setEditSportCfg(buildPricingConfig(sport));
+    setEditSportId(sport.id);
+  };
+  const handleSaveEditSport = async () => {
+    if (!editSportId) return;
+    const pr = commPricing.find((p) => p.sport_id === editSportId);
+    await updateSportFull.mutateAsync({
+      sport_id: editSportId, community_id: id!, pricing_id: pr?.id ?? null, pricing: editSportCfg,
+    });
+    setEditSportId(null);
+  };
+
+
 
   const allDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
