@@ -402,6 +402,8 @@ export function useCreateStudent() {
       student_type: "kid" | "adult";
       community_id: string; sport_id: string; time_slot_id: string; batch_type: string; age_group: string;
       payment_plan: string; fee_amount: number; joining_date: string; batch_time: string;
+      pricing_type?: string; renewal_trigger?: string;
+      total_sessions_paid?: number; sessions_remaining?: number;
     }) => {
       const { data, error } = await supabase.from("students").insert({
         student_id: input.student_id, name: input.name, age: input.age, parent_name: input.parent_name,
@@ -411,7 +413,13 @@ export function useCreateStudent() {
         batch_type: input.batch_type, age_group: input.age_group, payment_plan: input.payment_plan,
         fee_amount: input.fee_amount, fee_status: "awaiting_first", next_due_date: input.joining_date,
         joining_date: input.joining_date, batch_time: input.batch_time,
+        pricing_type: input.pricing_type ?? "duration_based",
+        renewal_trigger: input.renewal_trigger ?? "date_based",
+        total_sessions_paid: input.total_sessions_paid ?? 0,
+        sessions_remaining: input.sessions_remaining ?? 0,
+        sessions_completed: 0,
       } as never).select().single();
+
       if (error) throw error;
       return data;
     },
