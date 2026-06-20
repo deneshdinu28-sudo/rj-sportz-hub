@@ -97,6 +97,49 @@ export default function CommunityDetail() {
   const selectedSlot = commTimeSlots.find((ts) => ts.id === studentForm.time_slot_id);
   const studentPricing = selectedSport ? commPricing.find((sp) => sp.sport_id === selectedSport.id) : null;
 
+  // Sport pricing meta
+  const sportPricingType = (selectedSport as any)?.pricing_type || "duration_based";
+  const sportRenewalTrigger = (selectedSport as any)?.renewal_trigger || "date_based";
+  const isKid = studentForm.student_type === "kid";
+  const sportPacks = useMemo(
+    () => (commPacks as any[]).filter((p) => p.sport_id === studentForm.sport_id && p.is_active !== false),
+    [commPacks, studentForm.sport_id]
+  );
+  const selectedPack = sportPacks.find((p) => p.id === studentForm.selected_pack_id);
+  const batchType = selectedSlot?.batch_type || "standard";
+
+  // Returns { amount, sessions } based on pricing_type + current selections.
+  const computeEnrollment = (): { amount: number; sessions: number; planLabel: string } => {
+    if (!selectedSport) return { amount: 0, sessions: 0, planLabel: "" };
+    const sp: any = selectedSport;
+    if (sportPricingType === "custom_monthly") {
+      const price = Number(isKid ? sp.kid_custom_monthly_price : sp.adult_custom_monthly_price) || Number(sp.custom_monthly_price) || 0;
+      const sessions = Number(isKid ? sp.kid_custom_monthly_sessions : sp.adult_custom_monthly_sessions) || Number(sp.custom_monthly_sessions) || 0;
+      return { amount: price, sessions, planLabel: "Custom Monthly" };
+    }
+    if (sportPricingType === "session_pack") {
+      if (!selectedPack) return { amount: 0, sessions: 0, planLabel: "" };
+      const priceKey = `${isKid ? "kid" : "adult"}_${batchType}_price`;
+      const amount = Number(selectedPack[priceKey]) || Number(selectedPack[`${batchType}_price`]) || 0;
+      return { amount, sessions: Number(selectedPack.session_count) || 0, planLabel: selectedPack.pack_name };
+    }
+    // duration_based — use sport_pricing kid/adult specific row keys, fall back to legacy
+    if (!studentPricing) return { amount: 0, sessions: 0, planLabel: "" };
+    const plan = studentForm.payment_plan;
+    const months = plan === "1m" ? 1 : plan === "3m" ? 3 : 6;
+    const prefix = `${isKid ? "kid" : "adult"}_${batchType}`;
+    const newKey = `${prefix}_${plan === "1m" ? "1month" : plan === "3m" ? "3month" : "6month"}`;
+    const legacyKey = `${batchType}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
+    const amount = Number((studentPricing as any)[newKey]) || Number((studentPricing as any)[legacyKey]) || 0;
+    const perMonth = sportRenewalTrigger === "session_based"
+      ? Number(isKid ? sp.kid_sessions_per_month : sp.adult_sessions_per_month) || Number(sp.sessions_per_month) || 0
+      : 0;
+    return { amount, sessions: perMonth * months, planLabel: plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months" };
+  };
+
+  const enrollmentPreview = computeEnrollment();
+
+
   const stats = useMemo(() => {
     const paid = commStudents.filter((s) => s.fee_status === "paid").length;
     const pending = commStudents.filter((s) => s.fee_status !== "paid").length;
