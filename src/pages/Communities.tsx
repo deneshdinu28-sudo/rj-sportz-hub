@@ -36,7 +36,9 @@ export default function Communities() {
   const createCommunity = useCreateCommunity();
   const deleteCommunityMut = useDeleteCommunity();
 
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
+
   const [statusFilter, setStatusFilter] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
   const [deleteCommunityId, setDeleteCommunityId] = useState<string | null>(null);
