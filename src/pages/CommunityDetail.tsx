@@ -680,9 +680,38 @@ export default function CommunityDetail() {
             <div><Label>Parent Name *</Label><Input value={studentForm.parent_name} onChange={(e) => setStudentForm((p) => ({ ...p, parent_name: e.target.value }))} placeholder="Suresh Kumar" /></div>
             <div><Label>WhatsApp Number *</Label><Input value={studentForm.parent_whatsapp} onChange={(e) => setStudentForm((p) => ({ ...p, parent_whatsapp: e.target.value }))} placeholder="9876543210" maxLength={10} /></div>
             <div><Label>Sport *</Label>
-              <Select value={studentForm.sport_id} onValueChange={(v) => setStudentForm((p) => ({ ...p, sport_id: v, time_slot_id: "" }))}>
+              <Select
+                value={studentForm.sport_id}
+                onValueChange={(v) => {
+                  const sp: any = commSports.find((s) => s.id === v);
+                  if (sp) {
+                    const allowsKids = sp.allows_kids ?? true;
+                    const allowsAdults = sp.allows_adults ?? true;
+                    if (studentForm.student_type === "kid" && !allowsKids) {
+                      toast({ title: "Sport not available", description: "This sport does not accept kid enrollments. Please select a different sport or contact admin.", variant: "destructive" });
+                      return;
+                    }
+                    if (studentForm.student_type === "adult" && !allowsAdults) {
+                      toast({ title: "Sport not available", description: "This sport does not accept adult enrollments. Please select a different sport or contact admin.", variant: "destructive" });
+                      return;
+                    }
+                  }
+                  setStudentForm((p) => ({ ...p, sport_id: v, time_slot_id: "", selected_pack_id: "" }));
+                }}
+              >
                 <SelectTrigger><SelectValue placeholder="Select sport" /></SelectTrigger>
-                <SelectContent>{commSports.map((s) => <SelectItem key={s.id} value={s.id}>{s.icon} {s.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {commSports.map((s: any) => {
+                    const blocked =
+                      (studentForm.student_type === "kid" && s.allows_kids === false) ||
+                      (studentForm.student_type === "adult" && s.allows_adults === false);
+                    return (
+                      <SelectItem key={s.id} value={s.id} disabled={blocked}>
+                        {s.icon} {s.name}{blocked ? " (not allowed)" : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
               </Select>
             </div>
             <div>
@@ -704,26 +733,69 @@ export default function CommunityDetail() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Payment Plan *</Label>
-              <RadioGroup value={studentForm.payment_plan} onValueChange={(v) => setStudentForm((p) => ({ ...p, payment_plan: v }))} className="space-y-2 mt-1">
-                {(["1m", "3m", "6m"] as const).map((plan) => {
-                  const label = plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months";
-                  const getPlanFee = () => {
-                    if (!studentPricing || !selectedSlot) return 0;
-                    const bt = selectedSlot.batch_type;
-                    const key = `${bt}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
-                    return Number((studentPricing as any)[key]) || 0;
-                  };
-                  return (
-                    <div key={plan} className="flex items-center gap-2">
-                      <RadioGroupItem value={plan} id={`pp-${plan}`} />
-                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(getPlanFee())}</Label>
-                    </div>
-                  );
-                })}
-              </RadioGroup>
-            </div>
+
+            {/* ADAPTIVE PAYMENT PLAN — based on sport's pricing_type */}
+            {selectedSport && sportPricingType === "duration_based" && (
+              <div>
+                <Label>Payment Plan *</Label>
+                <RadioGroup value={studentForm.payment_plan} onValueChange={(v) => setStudentForm((p) => ({ ...p, payment_plan: v }))} className="space-y-2 mt-1">
+                  {(["1m", "3m", "6m"] as const).map((plan) => {
+                    const label = plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months";
+                    const prefix = `${isKid ? "kid" : "adult"}_${batchType}`;
+                    const newKey = `${prefix}_${plan === "1m" ? "1month" : plan === "3m" ? "3month" : "6month"}`;
+                    const legacyKey = `${batchType}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
+                    const fee = studentPricing
+                      ? (Number((studentPricing as any)[newKey]) || Number((studentPricing as any)[legacyKey]) || 0)
+                      : 0;
+                    return (
+                      <div key={plan} className="flex items-center gap-2">
+                        <RadioGroupItem value={plan} id={`pp-${plan}`} />
+                        <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(fee)}</Label>
+                      </div>
+                    );
+                  })}
+                </RadioGroup>
+              </div>
+            )}
+            {selectedSport && sportPricingType === "custom_monthly" && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <p className="text-xs uppercase text-muted-foreground mb-1">Custom Monthly Plan</p>
+                <p className="text-sm font-semibold">
+                  ₹{enrollmentPreview.amount} / month — {enrollmentPreview.sessions} sessions
+                </p>
+              </div>
+            )}
+            {selectedSport && sportPricingType === "session_pack" && (
+              <div>
+                <Label>Select Pack *</Label>
+                {sportPacks.length === 0 ? (
+                  <p className="text-xs text-muted-foreground mt-1">No active packs for this sport.</p>
+                ) : (
+                  <div className="space-y-2 mt-1">
+                    {sportPacks.map((pk: any) => {
+                      const priceKey = `${isKid ? "kid" : "adult"}_${batchType}_price`;
+                      const price = Number(pk[priceKey]) || Number(pk[`${batchType}_price`]) || 0;
+                      const selected = studentForm.selected_pack_id === pk.id;
+                      return (
+                        <button
+                          key={pk.id}
+                          type="button"
+                          onClick={() => setStudentForm((p) => ({ ...p, selected_pack_id: pk.id }))}
+                          className={cn(
+                            "w-full text-left p-3 rounded-lg border transition-all",
+                            selected ? "border-primary bg-primary/10 shadow-[0_0_10px_rgba(57,255,20,0.2)]" : "border-border hover:border-primary/40"
+                          )}
+                        >
+                          <p className="text-sm font-semibold">{pk.pack_name}</p>
+                          <p className="text-xs text-muted-foreground">{pk.session_count} sessions — {formatCurrencyFull(price)}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <Label>Joining Date *</Label>
               <Popover>
