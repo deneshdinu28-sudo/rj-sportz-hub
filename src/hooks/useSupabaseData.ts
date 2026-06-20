@@ -402,6 +402,8 @@ export function useCreateStudent() {
       student_type: "kid" | "adult";
       community_id: string; sport_id: string; time_slot_id: string; batch_type: string; age_group: string;
       payment_plan: string; fee_amount: number; joining_date: string; batch_time: string;
+      pricing_type?: string; renewal_trigger?: string;
+      total_sessions_paid?: number; sessions_remaining?: number;
     }) => {
       const { data, error } = await supabase.from("students").insert({
         student_id: input.student_id, name: input.name, age: input.age, parent_name: input.parent_name,
@@ -411,7 +413,13 @@ export function useCreateStudent() {
         batch_type: input.batch_type, age_group: input.age_group, payment_plan: input.payment_plan,
         fee_amount: input.fee_amount, fee_status: "awaiting_first", next_due_date: input.joining_date,
         joining_date: input.joining_date, batch_time: input.batch_time,
+        pricing_type: input.pricing_type ?? "duration_based",
+        renewal_trigger: input.renewal_trigger ?? "date_based",
+        total_sessions_paid: input.total_sessions_paid ?? 0,
+        sessions_remaining: input.sessions_remaining ?? 0,
+        sessions_completed: 0,
       } as never).select().single();
+
       if (error) throw error;
       return data;
     },
@@ -559,6 +567,28 @@ export function useMarkPayment() {
 
 // ─── Attendance ─────────────────────────────────────────────────────
 
+// Apply session deductions for session-based students when marked present.
+// Returns warnings for students hitting low (≤2) or zero remaining sessions.
+async function applySessionDeductions(records: Array<{ student_id: string; status: string }>) {
+  const presentIds = Array.from(new Set(records.filter((r) => r.status === "present").map((r) => r.student_id)));
+  if (presentIds.length === 0) return [] as Array<{ name: string; remaining: number }>;
+  const { data: students } = await supabase
+    .from("students")
+    .select("id,name,renewal_trigger,sessions_remaining,sessions_completed,fee_status,parent_whatsapp")
+    .in("id", presentIds);
+  const warnings: Array<{ name: string; remaining: number }> = [];
+  for (const s of students || []) {
+    if ((s as any).renewal_trigger !== "session_based") continue;
+    const remaining = Math.max(0, ((s as any).sessions_remaining ?? 0) - 1);
+    const completed = ((s as any).sessions_completed ?? 0) + 1;
+    const updates: Record<string, unknown> = { sessions_remaining: remaining, sessions_completed: completed };
+    if (remaining === 0) updates.fee_status = "unpaid";
+    await supabase.from("students").update(updates).eq("id", (s as any).id);
+    if (remaining <= 2) warnings.push({ name: (s as any).name, remaining });
+  }
+  return warnings;
+}
+
 export function useCreateAttendance() {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -566,17 +596,33 @@ export function useCreateAttendance() {
     mutationFn: async (records: Array<{ student_id: string; time_slot_id: string; date: string; status: string }>) => {
       const { error } = await supabase.from("attendance").insert(records);
       if (error) throw error;
+      const warnings = await applySessionDeductions(records);
+      return { warnings };
     },
-    onSuccess: (_, vars) => {
+    onSuccess: ({ warnings }, vars) => {
       const present = vars.filter(r => r.status === "present").length;
       const absent = vars.filter(r => r.status === "absent").length;
       const leave = vars.filter(r => r.status === "leave").length;
       qc.invalidateQueries({ queryKey: ["attendance"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["student"] });
       toast({ title: `Attendance marked for ${vars.length} students!`, description: `Present: ${present} | Absent: ${absent} | Leave: ${leave}` });
+      for (const w of warnings) {
+        toast({
+          title: w.remaining === 0 ? `Plan completed — ${w.name}` : `Low sessions — ${w.name}`,
+          description: w.remaining === 0
+            ? "Fee status set to unpaid. Send renewal reminder to parent."
+            : `Only ${w.remaining} session(s) left. Send low-sessions reminder.`,
+          variant: w.remaining === 0 ? "destructive" : "default",
+        });
+      }
     },
     onError: (err: Error) => { toast({ title: "Failed to mark attendance", description: err.message, variant: "destructive" }); },
   });
 }
+
+export { applySessionDeductions };
+
 
 export function useStudentAttendance(studentId: string | undefined) {
   return useQuery({

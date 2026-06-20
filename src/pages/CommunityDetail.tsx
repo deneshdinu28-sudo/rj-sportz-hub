@@ -24,10 +24,14 @@ import {
   useCreateCoachAssignment, useSessionPacks, useUpdateSportFull, formatCurrencyFull, formatCurrency, formatTime,
 } from "@/hooks/useSupabaseData";
 import SportPricingFields, { defaultPricingConfig, type PricingConfig } from "@/components/SportPricingFields";
+import { useToast } from "@/hooks/use-toast";
+
 
 export default function CommunityDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
+
 
   const { data: community, isLoading: loadingComm } = useCommunity(id);
   const { data: commSports = [], isLoading: loadingSports } = useSports(id);
@@ -57,8 +61,10 @@ export default function CommunityDetail() {
     name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
     student_type: "kid" as "kid" | "adult",
     sport_id: "", time_slot_id: "", age_group: "kids", payment_plan: "1m",
+    selected_pack_id: "",
     joining_date: new Date().toISOString().slice(0, 10),
   });
+
 
   const [sportForm, setSportForm] = useState({
     sportName: "", sportIcon: "", coach_id: "", coach_name: "", coach_phone: "",
@@ -90,6 +96,49 @@ export default function CommunityDetail() {
 
   const selectedSlot = commTimeSlots.find((ts) => ts.id === studentForm.time_slot_id);
   const studentPricing = selectedSport ? commPricing.find((sp) => sp.sport_id === selectedSport.id) : null;
+
+  // Sport pricing meta
+  const sportPricingType = (selectedSport as any)?.pricing_type || "duration_based";
+  const sportRenewalTrigger = (selectedSport as any)?.renewal_trigger || "date_based";
+  const isKid = studentForm.student_type === "kid";
+  const sportPacks = useMemo(
+    () => (commPacks as any[]).filter((p) => p.sport_id === studentForm.sport_id && p.is_active !== false),
+    [commPacks, studentForm.sport_id]
+  );
+  const selectedPack = sportPacks.find((p) => p.id === studentForm.selected_pack_id);
+  const batchType = selectedSlot?.batch_type || "standard";
+
+  // Returns { amount, sessions } based on pricing_type + current selections.
+  const computeEnrollment = (): { amount: number; sessions: number; planLabel: string } => {
+    if (!selectedSport) return { amount: 0, sessions: 0, planLabel: "" };
+    const sp: any = selectedSport;
+    if (sportPricingType === "custom_monthly") {
+      const price = Number(isKid ? sp.kid_custom_monthly_price : sp.adult_custom_monthly_price) || Number(sp.custom_monthly_price) || 0;
+      const sessions = Number(isKid ? sp.kid_custom_monthly_sessions : sp.adult_custom_monthly_sessions) || Number(sp.custom_monthly_sessions) || 0;
+      return { amount: price, sessions, planLabel: "Custom Monthly" };
+    }
+    if (sportPricingType === "session_pack") {
+      if (!selectedPack) return { amount: 0, sessions: 0, planLabel: "" };
+      const priceKey = `${isKid ? "kid" : "adult"}_${batchType}_price`;
+      const amount = Number(selectedPack[priceKey]) || Number(selectedPack[`${batchType}_price`]) || 0;
+      return { amount, sessions: Number(selectedPack.session_count) || 0, planLabel: selectedPack.pack_name };
+    }
+    // duration_based — use sport_pricing kid/adult specific row keys, fall back to legacy
+    if (!studentPricing) return { amount: 0, sessions: 0, planLabel: "" };
+    const plan = studentForm.payment_plan;
+    const months = plan === "1m" ? 1 : plan === "3m" ? 3 : 6;
+    const prefix = `${isKid ? "kid" : "adult"}_${batchType}`;
+    const newKey = `${prefix}_${plan === "1m" ? "1month" : plan === "3m" ? "3month" : "6month"}`;
+    const legacyKey = `${batchType}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
+    const amount = Number((studentPricing as any)[newKey]) || Number((studentPricing as any)[legacyKey]) || 0;
+    const perMonth = sportRenewalTrigger === "session_based"
+      ? Number(isKid ? sp.kid_sessions_per_month : sp.adult_sessions_per_month) || Number(sp.sessions_per_month) || 0
+      : 0;
+    return { amount, sessions: perMonth * months, planLabel: plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months" };
+  };
+
+  const enrollmentPreview = computeEnrollment();
+
 
   const stats = useMemo(() => {
     const paid = commStudents.filter((s) => s.fee_status === "paid").length;
@@ -131,13 +180,7 @@ export default function CommunityDetail() {
     return studs;
   };
 
-  const getFeeAmount = () => {
-    if (!studentPricing || !selectedSlot) return 0;
-    const bt = selectedSlot.batch_type;
-    const plan = studentForm.payment_plan;
-    const key = `${bt}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
-    return Number((studentPricing as any)[key]) || 0;
-  };
+  const getFeeAmount = () => enrollmentPreview.amount;
 
   const getStudentId = () => {
     const count = commStudents.length + 1;
@@ -149,13 +192,31 @@ export default function CommunityDetail() {
       name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
       student_type: "kid",
       sport_id: sportId ?? commSports[0]?.id ?? "", time_slot_id: "", age_group: "kids",
-      payment_plan: "1m", joining_date: new Date().toISOString().slice(0, 10),
+      payment_plan: "1m", selected_pack_id: "", joining_date: new Date().toISOString().slice(0, 10),
     });
     setAddStudentOpen(true);
   };
 
   const handleSaveStudent = async () => {
-    const feeAmount = getFeeAmount();
+    // Audience guard
+    const sp: any = selectedSport;
+    if (sp) {
+      const allowsKids = sp.allows_kids ?? true;
+      const allowsAdults = sp.allows_adults ?? true;
+      if (studentForm.student_type === "kid" && !allowsKids) {
+        toast({ title: "Sport not available", description: "This sport does not accept kid enrollments. Please select a different sport or contact admin.", variant: "destructive" });
+        return;
+      }
+      if (studentForm.student_type === "adult" && !allowsAdults) {
+        toast({ title: "Sport not available", description: "This sport does not accept adult enrollments. Please select a different sport or contact admin.", variant: "destructive" });
+        return;
+      }
+    }
+    if (sportPricingType === "session_pack" && !studentForm.selected_pack_id) {
+      toast({ title: "Pick a session pack", variant: "destructive" });
+      return;
+    }
+    const { amount, sessions } = enrollmentPreview;
     const ageNum = parseInt(studentForm.age) || 10;
     await createStudent.mutateAsync({
       student_id: getStudentId(),
@@ -171,14 +232,24 @@ export default function CommunityDetail() {
       batch_type: selectedSlot?.batch_type || "standard",
       age_group: studentForm.age_group,
       payment_plan: studentForm.payment_plan,
-      fee_amount: feeAmount,
+      fee_amount: amount,
       joining_date: studentForm.joining_date,
       batch_time: selectedSlot ? `${formatTime(selectedSlot.start_time)}-${formatTime(selectedSlot.end_time)}` : "",
+      pricing_type: sportPricingType,
+      renewal_trigger: sportRenewalTrigger,
+      total_sessions_paid: sportRenewalTrigger === "session_based" ? sessions : 0,
+      sessions_remaining: sportRenewalTrigger === "session_based" ? sessions : 0,
     });
     setAddStudentOpen(false);
   };
 
+
+
   const handleSaveSport = async () => {
+    if (!sportForm.pricing.allows_kids && !sportForm.pricing.allows_adults) {
+      toast({ title: "Select an audience", description: "Tick Kids, Adults, or both before saving.", variant: "destructive" });
+      return;
+    }
     const existingGlobal = globalSports.find((g) => g.name === sportForm.sportName);
     if (!existingGlobal && sportForm.sportName) {
       await supabase.from("global_sports").insert({
@@ -609,9 +680,38 @@ export default function CommunityDetail() {
             <div><Label>Parent Name *</Label><Input value={studentForm.parent_name} onChange={(e) => setStudentForm((p) => ({ ...p, parent_name: e.target.value }))} placeholder="Suresh Kumar" /></div>
             <div><Label>WhatsApp Number *</Label><Input value={studentForm.parent_whatsapp} onChange={(e) => setStudentForm((p) => ({ ...p, parent_whatsapp: e.target.value }))} placeholder="9876543210" maxLength={10} /></div>
             <div><Label>Sport *</Label>
-              <Select value={studentForm.sport_id} onValueChange={(v) => setStudentForm((p) => ({ ...p, sport_id: v, time_slot_id: "" }))}>
+              <Select
+                value={studentForm.sport_id}
+                onValueChange={(v) => {
+                  const sp: any = commSports.find((s) => s.id === v);
+                  if (sp) {
+                    const allowsKids = sp.allows_kids ?? true;
+                    const allowsAdults = sp.allows_adults ?? true;
+                    if (studentForm.student_type === "kid" && !allowsKids) {
+                      toast({ title: "Sport not available", description: "This sport does not accept kid enrollments. Please select a different sport or contact admin.", variant: "destructive" });
+                      return;
+                    }
+                    if (studentForm.student_type === "adult" && !allowsAdults) {
+                      toast({ title: "Sport not available", description: "This sport does not accept adult enrollments. Please select a different sport or contact admin.", variant: "destructive" });
+                      return;
+                    }
+                  }
+                  setStudentForm((p) => ({ ...p, sport_id: v, time_slot_id: "", selected_pack_id: "" }));
+                }}
+              >
                 <SelectTrigger><SelectValue placeholder="Select sport" /></SelectTrigger>
-                <SelectContent>{commSports.map((s) => <SelectItem key={s.id} value={s.id}>{s.icon} {s.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {commSports.map((s: any) => {
+                    const blocked =
+                      (studentForm.student_type === "kid" && s.allows_kids === false) ||
+                      (studentForm.student_type === "adult" && s.allows_adults === false);
+                    return (
+                      <SelectItem key={s.id} value={s.id} disabled={blocked}>
+                        {s.icon} {s.name}{blocked ? " (not allowed)" : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
               </Select>
             </div>
             <div>
@@ -633,26 +733,69 @@ export default function CommunityDetail() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Payment Plan *</Label>
-              <RadioGroup value={studentForm.payment_plan} onValueChange={(v) => setStudentForm((p) => ({ ...p, payment_plan: v }))} className="space-y-2 mt-1">
-                {(["1m", "3m", "6m"] as const).map((plan) => {
-                  const label = plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months";
-                  const getPlanFee = () => {
-                    if (!studentPricing || !selectedSlot) return 0;
-                    const bt = selectedSlot.batch_type;
-                    const key = `${bt}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
-                    return Number((studentPricing as any)[key]) || 0;
-                  };
-                  return (
-                    <div key={plan} className="flex items-center gap-2">
-                      <RadioGroupItem value={plan} id={`pp-${plan}`} />
-                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(getPlanFee())}</Label>
-                    </div>
-                  );
-                })}
-              </RadioGroup>
-            </div>
+
+            {/* ADAPTIVE PAYMENT PLAN — based on sport's pricing_type */}
+            {selectedSport && sportPricingType === "duration_based" && (
+              <div>
+                <Label>Payment Plan *</Label>
+                <RadioGroup value={studentForm.payment_plan} onValueChange={(v) => setStudentForm((p) => ({ ...p, payment_plan: v }))} className="space-y-2 mt-1">
+                  {(["1m", "3m", "6m"] as const).map((plan) => {
+                    const label = plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months";
+                    const prefix = `${isKid ? "kid" : "adult"}_${batchType}`;
+                    const newKey = `${prefix}_${plan === "1m" ? "1month" : plan === "3m" ? "3month" : "6month"}`;
+                    const legacyKey = `${batchType}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
+                    const fee = studentPricing
+                      ? (Number((studentPricing as any)[newKey]) || Number((studentPricing as any)[legacyKey]) || 0)
+                      : 0;
+                    return (
+                      <div key={plan} className="flex items-center gap-2">
+                        <RadioGroupItem value={plan} id={`pp-${plan}`} />
+                        <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(fee)}</Label>
+                      </div>
+                    );
+                  })}
+                </RadioGroup>
+              </div>
+            )}
+            {selectedSport && sportPricingType === "custom_monthly" && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <p className="text-xs uppercase text-muted-foreground mb-1">Custom Monthly Plan</p>
+                <p className="text-sm font-semibold">
+                  ₹{enrollmentPreview.amount} / month — {enrollmentPreview.sessions} sessions
+                </p>
+              </div>
+            )}
+            {selectedSport && sportPricingType === "session_pack" && (
+              <div>
+                <Label>Select Pack *</Label>
+                {sportPacks.length === 0 ? (
+                  <p className="text-xs text-muted-foreground mt-1">No active packs for this sport.</p>
+                ) : (
+                  <div className="space-y-2 mt-1">
+                    {sportPacks.map((pk: any) => {
+                      const priceKey = `${isKid ? "kid" : "adult"}_${batchType}_price`;
+                      const price = Number(pk[priceKey]) || Number(pk[`${batchType}_price`]) || 0;
+                      const selected = studentForm.selected_pack_id === pk.id;
+                      return (
+                        <button
+                          key={pk.id}
+                          type="button"
+                          onClick={() => setStudentForm((p) => ({ ...p, selected_pack_id: pk.id }))}
+                          className={cn(
+                            "w-full text-left p-3 rounded-lg border transition-all",
+                            selected ? "border-primary bg-primary/10 shadow-[0_0_10px_rgba(57,255,20,0.2)]" : "border-border hover:border-primary/40"
+                          )}
+                        >
+                          <p className="text-sm font-semibold">{pk.pack_name}</p>
+                          <p className="text-xs text-muted-foreground">{pk.session_count} sessions — {formatCurrencyFull(price)}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <Label>Joining Date *</Label>
               <Popover>
@@ -696,7 +839,7 @@ export default function CommunityDetail() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddStudentOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveStudent} disabled={createStudent.isPending || !studentForm.name || !studentForm.sport_id || !studentForm.time_slot_id}>
+            <Button onClick={handleSaveStudent} disabled={createStudent.isPending || !studentForm.name || !studentForm.sport_id || !studentForm.time_slot_id || (sportPricingType === "session_pack" && !studentForm.selected_pack_id)}>
               {createStudent.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Enrolling...</> : "Enroll Student →"}
             </Button>
           </DialogFooter>

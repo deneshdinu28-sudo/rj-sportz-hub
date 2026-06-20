@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useCommunities, useStudents, usePayments, useSports, useGlobalSports, useCreateCommunity, useDeleteCommunity, useCoaches, formatCurrency, formatCurrencyFull } from "@/hooks/useSupabaseData";
+import { useToast } from "@/hooks/use-toast";
+
 import { Lock, X, MessageSquare, AlertTriangle } from "lucide-react";
 
 import SportPricingFields, { defaultPricingConfig, type PricingConfig } from "@/components/SportPricingFields";
@@ -34,7 +36,9 @@ export default function Communities() {
   const createCommunity = useCreateCommunity();
   const deleteCommunityMut = useDeleteCommunity();
 
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
+
   const [statusFilter, setStatusFilter] = useState("all");
   const [addOpen, setAddOpen] = useState(false);
   const [deleteCommunityId, setDeleteCommunityId] = useState<string | null>(null);
@@ -90,6 +94,10 @@ export default function Communities() {
   };
 
   const handleAddSportPricing = () => {
+    if (!newSportPricing.pricing.allows_kids && !newSportPricing.pricing.allows_adults) {
+      toast({ title: "Select an audience", description: "Tick Kids, Adults, or both before adding this sport.", variant: "destructive" });
+      return;
+    }
     const entry: SportPricingEntry = isCustomSport
       ? { ...newSportPricing, sportName: customSportName, sportIcon: customSportIcon }
       : { ...newSportPricing };
@@ -101,6 +109,7 @@ export default function Communities() {
       pricing: defaultPricingConfig(),
     });
   };
+
 
   const handleRemoveSportPricing = (idx: number) => {
     setSportPricings((prev) => prev.filter((_, i) => i !== idx));
