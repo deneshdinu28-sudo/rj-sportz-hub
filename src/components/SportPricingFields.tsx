@@ -118,24 +118,40 @@ export default function SportPricingFields({ value, onChange }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* AUDIENCE TOGGLE */}
+      {/* AUDIENCE — independent checkboxes */}
       <div>
         <Label className="text-sm font-semibold">Who can join this sport? *</Label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-          <TypeCard
-            selected={audiencePreset === "both"}
-            onClick={() => set({ allows_kids: true, allows_adults: true })}
-            title="Kids and Adults"
-            desc="Different pricing for each age group"
-          />
-          <TypeCard
-            selected={audiencePreset === "adults_only"}
-            onClick={() => set({ allows_kids: false, allows_adults: true })}
-            title="Adults Only"
-            desc="No kid pricing — adults only sport"
-          />
+        <div className="flex flex-wrap gap-3 mt-2">
+          <label className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all",
+            showKid ? "border-primary bg-primary/10 shadow-[0_0_10px_rgba(57,255,20,0.2)]" : "border-border bg-muted/20 hover:border-primary/40"
+          )}>
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-primary"
+              checked={showKid}
+              onChange={(e) => set({ allows_kids: e.target.checked })}
+            />
+            <span className="text-sm font-medium">👦 Kids</span>
+          </label>
+          <label className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all",
+            showAdult ? "border-primary bg-primary/10 shadow-[0_0_10px_rgba(57,255,20,0.2)]" : "border-border bg-muted/20 hover:border-primary/40"
+          )}>
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-primary"
+              checked={showAdult}
+              onChange={(e) => set({ allows_adults: e.target.checked })}
+            />
+            <span className="text-sm font-medium">👤 Adults</span>
+          </label>
         </div>
+        {audienceError && (
+          <p className="text-xs text-destructive mt-1">Select at least one — Kids or Adults.</p>
+        )}
       </div>
+
 
       {/* PRICING TYPE */}
       <div>
