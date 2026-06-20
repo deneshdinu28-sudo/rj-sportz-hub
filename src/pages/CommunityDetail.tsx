@@ -30,6 +30,8 @@ import { useToast } from "@/hooks/use-toast";
 export default function CommunityDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
+
 
   const { data: community, isLoading: loadingComm } = useCommunity(id);
   const { data: commSports = [], isLoading: loadingSports } = useSports(id);
