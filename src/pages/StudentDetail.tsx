@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useStudent, useCommunities, useSports, useStudentPayments, useSportPricing, usePromoteStudent, useStudentAttendance, formatCurrencyFull } from "@/hooks/useSupabaseData";
+import { useStudent, useCommunities, useSports, useStudentPayments, useSportPricing, usePromoteStudent, useStudentAttendance, formatCurrencyFull, buildSessionReminderMessage } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
