@@ -294,20 +294,56 @@ export default function StudentDetail() {
             <Card>
               <CardHeader><CardTitle className="text-sm">Payment Info</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Plan</span>
-                  <div className="flex items-center gap-2">
-                    <span>{student.batch_type} • {student.payment_plan === "1m" ? "1 Month" : student.payment_plan === "3m" ? "3 Months" : "6 Months"}</span>
-                    <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2 border-primary/40 text-primary hover:bg-primary/10" onClick={() => { setSelectedPlan(""); setPlanOpen(true); }}>
-                      <Repeat className="h-3 w-3" /> Change
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-semibold">{formatCurrencyFull(Number(student.fee_amount))}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Period</span><span>{student.payment_start_date} → {student.payment_end_date}</span></div>
-                {student.next_due_date && <div className="flex justify-between"><span className="text-muted-foreground">Next Due</span><span className="text-warning">{student.next_due_date}</span></div>}
+                {(student as any).renewal_trigger === "session_based" ? (() => {
+                  const total = Number((student as any).total_sessions_paid) || 0;
+                  const completed = Number((student as any).sessions_completed) || 0;
+                  const remaining = Number((student as any).sessions_remaining) || 0;
+                  const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+                  const planLabel = (student as any).pricing_type === "custom_monthly" ? "Custom Monthly" : "Session Plan";
+                  return (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Current Plan</span>
+                        <span>{planLabel} • {student.batch_type}</span>
+                      </div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Sessions</span><span>{completed} of {total} completed</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Remaining</span><span className="font-semibold">{remaining}</span></div>
+                      <div className="space-y-1 pt-1">
+                        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                          <div className="h-full bg-primary shadow-[0_0_8px_rgba(57,255,20,0.6)] transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground text-right">{pct}% complete</p>
+                      </div>
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="text-muted-foreground">Status</span>
+                        {remaining > 0 ? (
+                          <Badge className="bg-success/15 text-success border border-success/30 hover:bg-success/20">Active</Badge>
+                        ) : (
+                          <Badge className="bg-warning/15 text-warning border border-warning/30 hover:bg-warning/20">Renewal Due</Badge>
+                        )}
+                      </div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-semibold">{formatCurrencyFull(Number(student.fee_amount))}</span></div>
+                    </>
+                  );
+                })() : (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Plan</span>
+                      <div className="flex items-center gap-2">
+                        <span>{student.batch_type} • {student.payment_plan === "1m" ? "1 Month" : student.payment_plan === "3m" ? "3 Months" : "6 Months"}</span>
+                        <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2 border-primary/40 text-primary hover:bg-primary/10" onClick={() => { setSelectedPlan(""); setPlanOpen(true); }}>
+                          <Repeat className="h-3 w-3" /> Change
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-semibold">{formatCurrencyFull(Number(student.fee_amount))}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Period</span><span>{student.payment_start_date} → {student.payment_end_date}</span></div>
+                    {student.next_due_date && <div className="flex justify-between"><span className="text-muted-foreground">Next Due</span><span className="text-warning">{student.next_due_date}</span></div>}
+                  </>
+                )}
               </CardContent>
             </Card>
+
 
             {/* Attendance with month navigation */}
             <Card>
