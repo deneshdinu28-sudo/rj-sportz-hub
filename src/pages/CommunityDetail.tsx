@@ -839,7 +839,7 @@ export default function CommunityDetail() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddStudentOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveStudent} disabled={createStudent.isPending || !studentForm.name || !studentForm.sport_id || !studentForm.time_slot_id}>
+            <Button onClick={handleSaveStudent} disabled={createStudent.isPending || !studentForm.name || !studentForm.sport_id || !studentForm.time_slot_id || (sportPricingType === "session_pack" && !studentForm.selected_pack_id)}>
               {createStudent.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Enrolling...</> : "Enroll Student →"}
             </Button>
           </DialogFooter>
