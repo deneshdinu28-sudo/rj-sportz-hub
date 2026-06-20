@@ -155,10 +155,11 @@ export default function CommunityDetail() {
       name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
       student_type: "kid",
       sport_id: sportId ?? commSports[0]?.id ?? "", time_slot_id: "", age_group: "kids",
-      payment_plan: "1m", joining_date: new Date().toISOString().slice(0, 10),
+      payment_plan: "1m", selected_pack_id: "", joining_date: new Date().toISOString().slice(0, 10),
     });
     setAddStudentOpen(true);
   };
+
 
   const handleSaveStudent = async () => {
     const feeAmount = getFeeAmount();
