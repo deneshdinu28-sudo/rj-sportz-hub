@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useCommunities, useStudents, usePayments, useSports, useGlobalSports, useCreateCommunity, useDeleteCommunity, useCoaches, formatCurrency, formatCurrencyFull } from "@/hooks/useSupabaseData";
+import { useToast } from "@/hooks/use-toast";
+
 import { Lock, X, MessageSquare, AlertTriangle } from "lucide-react";
 
 import SportPricingFields, { defaultPricingConfig, type PricingConfig } from "@/components/SportPricingFields";
