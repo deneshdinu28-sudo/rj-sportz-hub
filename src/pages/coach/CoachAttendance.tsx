@@ -151,10 +151,19 @@ export default function CoachAttendance() {
       }));
       const { error } = await supabase.from("attendance").insert(records);
       if (error) throw error;
+      const warnings = await applySessionDeductions(records);
 
       const present = records.filter((r) => r.status === "present").length;
       toast({ title: `Attendance submitted! ${present}/${records.length} present` });
+      for (const w of warnings) {
+        toast({
+          title: w.remaining === 0 ? `Plan completed — ${w.name}` : `Low sessions — ${w.name}`,
+          description: w.remaining === 0 ? "Fee status set to unpaid." : `Only ${w.remaining} session(s) left.`,
+          variant: w.remaining === 0 ? "destructive" : "default",
+        });
+      }
       setLoaded(false);
+
     } catch (err: any) {
       toast({ title: "Failed", description: err.message, variant: "destructive" });
     } finally {
