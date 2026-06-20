@@ -90,6 +90,10 @@ export default function Communities() {
   };
 
   const handleAddSportPricing = () => {
+    if (!newSportPricing.pricing.allows_kids && !newSportPricing.pricing.allows_adults) {
+      toast({ title: "Select an audience", description: "Tick Kids, Adults, or both before adding this sport.", variant: "destructive" });
+      return;
+    }
     const entry: SportPricingEntry = isCustomSport
       ? { ...newSportPricing, sportName: customSportName, sportIcon: customSportIcon }
       : { ...newSportPricing };
@@ -101,6 +105,7 @@ export default function Communities() {
       pricing: defaultPricingConfig(),
     });
   };
+
 
   const handleRemoveSportPricing = (idx: number) => {
     setSportPricings((prev) => prev.filter((_, i) => i !== idx));
