@@ -179,6 +179,10 @@ export default function CommunityDetail() {
   };
 
   const handleSaveSport = async () => {
+    if (!sportForm.pricing.allows_kids && !sportForm.pricing.allows_adults) {
+      toast({ title: "Select an audience", description: "Tick Kids, Adults, or both before saving.", variant: "destructive" });
+      return;
+    }
     const existingGlobal = globalSports.find((g) => g.name === sportForm.sportName);
     if (!existingGlobal && sportForm.sportName) {
       await supabase.from("global_sports").insert({
