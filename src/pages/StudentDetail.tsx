@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useStudent, useCommunities, useSports, useStudentPayments, useSportPricing, usePromoteStudent, useStudentAttendance, formatCurrencyFull } from "@/hooks/useSupabaseData";
+import { useStudent, useCommunities, useSports, useStudentPayments, useSportPricing, usePromoteStudent, useStudentAttendance, formatCurrencyFull, buildSessionReminderMessage } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -322,6 +322,20 @@ export default function StudentDetail() {
                           <Badge className="bg-warning/15 text-warning border border-warning/30 hover:bg-warning/20">Renewal Due</Badge>
                         )}
                       </div>
+                      {remaining <= 2 && (
+                        <div className="pt-1">
+                          <Button asChild size="sm" variant="outline" className="w-full gap-1 text-xs border-primary/40 text-primary hover:bg-primary/10">
+                            <a
+                              href={`https://wa.me/91${student.parent_whatsapp}?text=${encodeURIComponent(buildSessionReminderMessage({ studentName: student.name, parentName: student.parent_name, remaining }))}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              {remaining === 0 ? "Send Completion Reminder" : "Send Low-Sessions Reminder"}
+                            </a>
+                          </Button>
+                        </div>
+                      )}
                       <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="font-semibold">{formatCurrencyFull(Number(student.fee_amount))}</span></div>
                     </>
                   );
