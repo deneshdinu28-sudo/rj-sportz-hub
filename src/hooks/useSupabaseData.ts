@@ -567,16 +567,39 @@ export function useMarkPayment() {
 
 // ─── Attendance ─────────────────────────────────────────────────────
 
+// Build the wa.me reminder message text for low-sessions / completion alerts.
+export function buildSessionReminderMessage(opts: { studentName: string; parentName?: string; remaining: number }) {
+  const greeting = `Dear ${opts.parentName || "Parent"},`;
+  if (opts.remaining === 0) {
+    return `🏁 Session Plan Completed — RJ Sportz\n\n${greeting}\n\n${opts.studentName}'s current session plan has been completed (all sessions used).\n\nPlease renew the plan to continue uninterrupted training.\n\nReply to this message or contact us to renew.\n\nRJ Sportz Team`;
+  }
+  return `⚠️ Low Sessions Reminder — RJ Sportz\n\n${greeting}\n\n${opts.studentName} has only ${opts.remaining} session(s) remaining in the current plan.\n\nPlease renew soon to avoid any break in training.\n\nReply to this message or contact us to renew.\n\nRJ Sportz Team`;
+}
+
+// Open the WhatsApp link for each warning. Returns count of links opened.
+export function openSessionReminderLinks(warnings: Array<{ name: string; remaining: number; parent_whatsapp?: string | null; parent_name?: string | null }>) {
+  let opened = 0;
+  for (const w of warnings) {
+    if (!w.parent_whatsapp) continue;
+    const text = buildSessionReminderMessage({ studentName: w.name, parentName: w.parent_name ?? undefined, remaining: w.remaining });
+    const url = `https://wa.me/91${w.parent_whatsapp}?text=${encodeURIComponent(text)}`;
+    try { window.open(url, "_blank", "noopener,noreferrer"); opened++; } catch { /* popup blocked */ }
+  }
+  return opened;
+}
+
+export type SessionWarning = { name: string; remaining: number; parent_whatsapp: string | null; parent_name: string | null };
+
 // Apply session deductions for session-based students when marked present.
 // Returns warnings for students hitting low (≤2) or zero remaining sessions.
-async function applySessionDeductions(records: Array<{ student_id: string; status: string }>) {
+async function applySessionDeductions(records: Array<{ student_id: string; status: string }>): Promise<SessionWarning[]> {
   const presentIds = Array.from(new Set(records.filter((r) => r.status === "present").map((r) => r.student_id)));
-  if (presentIds.length === 0) return [] as Array<{ name: string; remaining: number }>;
+  if (presentIds.length === 0) return [];
   const { data: students } = await supabase
     .from("students")
-    .select("id,name,renewal_trigger,sessions_remaining,sessions_completed,fee_status,parent_whatsapp")
+    .select("id,name,renewal_trigger,sessions_remaining,sessions_completed,fee_status,parent_whatsapp,parent_name")
     .in("id", presentIds);
-  const warnings: Array<{ name: string; remaining: number }> = [];
+  const warnings: SessionWarning[] = [];
   for (const s of students || []) {
     if ((s as any).renewal_trigger !== "session_based") continue;
     const remaining = Math.max(0, ((s as any).sessions_remaining ?? 0) - 1);
@@ -584,7 +607,12 @@ async function applySessionDeductions(records: Array<{ student_id: string; statu
     const updates: Record<string, unknown> = { sessions_remaining: remaining, sessions_completed: completed };
     if (remaining === 0) updates.fee_status = "unpaid";
     await supabase.from("students").update(updates).eq("id", (s as any).id);
-    if (remaining <= 2) warnings.push({ name: (s as any).name, remaining });
+    if (remaining <= 2) warnings.push({
+      name: (s as any).name,
+      remaining,
+      parent_whatsapp: (s as any).parent_whatsapp ?? null,
+      parent_name: (s as any).parent_name ?? null,
+    });
   }
   return warnings;
 }
@@ -610,12 +638,13 @@ export function useCreateAttendance() {
       for (const w of warnings) {
         toast({
           title: w.remaining === 0 ? `Plan completed — ${w.name}` : `Low sessions — ${w.name}`,
-          description: w.remaining === 0
-            ? "Fee status set to unpaid. Send renewal reminder to parent."
-            : `Only ${w.remaining} session(s) left. Send low-sessions reminder.`,
+          description: w.parent_whatsapp
+            ? "WhatsApp opened — click send to notify parent."
+            : (w.remaining === 0 ? "Fee status set to unpaid. No WhatsApp on file." : `Only ${w.remaining} session(s) left. No WhatsApp on file.`),
           variant: w.remaining === 0 ? "destructive" : "default",
         });
       }
+      openSessionReminderLinks(warnings);
     },
     onError: (err: Error) => { toast({ title: "Failed to mark attendance", description: err.message, variant: "destructive" }); },
   });
