@@ -24,6 +24,8 @@ import {
   useCreateCoachAssignment, useSessionPacks, useUpdateSportFull, formatCurrencyFull, formatCurrency, formatTime,
 } from "@/hooks/useSupabaseData";
 import SportPricingFields, { defaultPricingConfig, type PricingConfig } from "@/components/SportPricingFields";
+import { useToast } from "@/hooks/use-toast";
+
 
 export default function CommunityDetail() {
   const { id } = useParams();
