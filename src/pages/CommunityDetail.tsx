@@ -180,13 +180,7 @@ export default function CommunityDetail() {
     return studs;
   };
 
-  const getFeeAmount = () => {
-    if (!studentPricing || !selectedSlot) return 0;
-    const bt = selectedSlot.batch_type;
-    const plan = studentForm.payment_plan;
-    const key = `${bt}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
-    return Number((studentPricing as any)[key]) || 0;
-  };
+  const getFeeAmount = () => enrollmentPreview.amount;
 
   const getStudentId = () => {
     const count = commStudents.length + 1;
@@ -203,9 +197,26 @@ export default function CommunityDetail() {
     setAddStudentOpen(true);
   };
 
-
   const handleSaveStudent = async () => {
-    const feeAmount = getFeeAmount();
+    // Audience guard
+    const sp: any = selectedSport;
+    if (sp) {
+      const allowsKids = sp.allows_kids ?? true;
+      const allowsAdults = sp.allows_adults ?? true;
+      if (studentForm.student_type === "kid" && !allowsKids) {
+        toast({ title: "Sport not available", description: "This sport does not accept kid enrollments. Please select a different sport or contact admin.", variant: "destructive" });
+        return;
+      }
+      if (studentForm.student_type === "adult" && !allowsAdults) {
+        toast({ title: "Sport not available", description: "This sport does not accept adult enrollments. Please select a different sport or contact admin.", variant: "destructive" });
+        return;
+      }
+    }
+    if (sportPricingType === "session_pack" && !studentForm.selected_pack_id) {
+      toast({ title: "Pick a session pack", variant: "destructive" });
+      return;
+    }
+    const { amount, sessions } = enrollmentPreview;
     const ageNum = parseInt(studentForm.age) || 10;
     await createStudent.mutateAsync({
       student_id: getStudentId(),
@@ -221,12 +232,18 @@ export default function CommunityDetail() {
       batch_type: selectedSlot?.batch_type || "standard",
       age_group: studentForm.age_group,
       payment_plan: studentForm.payment_plan,
-      fee_amount: feeAmount,
+      fee_amount: amount,
       joining_date: studentForm.joining_date,
       batch_time: selectedSlot ? `${formatTime(selectedSlot.start_time)}-${formatTime(selectedSlot.end_time)}` : "",
+      pricing_type: sportPricingType,
+      renewal_trigger: sportRenewalTrigger,
+      total_sessions_paid: sportRenewalTrigger === "session_based" ? sessions : 0,
+      sessions_remaining: sportRenewalTrigger === "session_based" ? sessions : 0,
     });
     setAddStudentOpen(false);
   };
+
+
 
   const handleSaveSport = async () => {
     if (!sportForm.pricing.allows_kids && !sportForm.pricing.allows_adults) {
