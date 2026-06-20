@@ -61,8 +61,10 @@ export default function CommunityDetail() {
     name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
     student_type: "kid" as "kid" | "adult",
     sport_id: "", time_slot_id: "", age_group: "kids", payment_plan: "1m",
+    selected_pack_id: "",
     joining_date: new Date().toISOString().slice(0, 10),
   });
+
 
   const [sportForm, setSportForm] = useState({
     sportName: "", sportIcon: "", coach_id: "", coach_name: "", coach_phone: "",
