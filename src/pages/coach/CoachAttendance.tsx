@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, CheckCircle, Loader2, Calendar, Edit2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { formatTime } from "@/hooks/useSupabaseData";
+import { formatTime, applySessionDeductions } from "@/hooks/useSupabaseData";
 
 type AttendanceStatus = "present" | "absent";
 
