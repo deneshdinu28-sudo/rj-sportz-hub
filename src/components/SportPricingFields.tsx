@@ -87,6 +87,7 @@ export default function SportPricingFields({ value, onChange }: Props) {
   const set = (patch: Partial<PricingConfig>) => onChange({ ...value, ...patch });
   const showKid = value.allows_kids;
   const showAdult = value.allows_adults;
+  const audienceError = !showKid && !showAdult;
 
   const updatePack = (idx: number, patch: Partial<PackEntry>) => {
     const packs = value.packs.map((p, i) => (i === idx ? { ...p, ...patch } : p));
@@ -101,8 +102,6 @@ export default function SportPricingFields({ value, onChange }: Props) {
   });
   const removePack = (idx: number) => set({ packs: value.packs.filter((_, i) => i !== idx) });
 
-  const audiencePreset: "both" | "adults_only" =
-    showKid && showAdult ? "both" : "adults_only";
 
   const DurationGroup = ({
     label, prefix,
