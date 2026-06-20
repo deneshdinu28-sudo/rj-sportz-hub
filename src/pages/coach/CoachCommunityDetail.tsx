@@ -34,13 +34,19 @@ interface StudentRow {
   time_slot_id: string | null;
 }
 
-interface SportRow { id: string; name: string; icon: string }
-interface SlotRow { id: string; sport_id: string; start_time: string; end_time: string; age_group: string; batch_type: string }
-interface PricingRow {
-  id: string; sport_id: string; community_id: string;
-  standard_1month: number; standard_3months: number; standard_6months: number;
-  premium_1month: number; premium_3months: number; premium_6months: number;
+interface SportRow {
+  id: string; name: string; icon: string;
+  pricing_type: string | null; renewal_trigger: string | null;
+  allows_kids: boolean | null; allows_adults: boolean | null;
+  kid_custom_monthly_price: number | null; kid_custom_monthly_sessions: number | null;
+  adult_custom_monthly_price: number | null; adult_custom_monthly_sessions: number | null;
+  custom_monthly_price: number | null; custom_monthly_sessions: number | null;
+  kid_sessions_per_month: number | null; adult_sessions_per_month: number | null;
+  sessions_per_month: number | null;
 }
+interface SlotRow { id: string; sport_id: string; start_time: string; end_time: string; age_group: string; batch_type: string }
+interface PricingRow { id: string; sport_id: string; community_id: string; [key: string]: any }
+interface PackRow { id: string; sport_id: string; pack_name: string; session_count: number; is_active: boolean | null; [key: string]: any }
 
 export default function CoachCommunityDetail() {
   const { communityId } = useParams();
@@ -56,15 +62,15 @@ export default function CoachCommunityDetail() {
   const [sports, setSports] = useState<SportRow[]>([]);
   const [timeSlots, setTimeSlots] = useState<SlotRow[]>([]);
   const [pricing, setPricing] = useState<PricingRow[]>([]);
+  const [packs, setPacks] = useState<PackRow[]>([]);
   const [assignedSportIds, setAssignedSportIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
 
-  // Add student dialog
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({
     name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
     student_type: "kid" as "kid" | "adult",
-    sport_id: "", time_slot_id: "", age_group: "kids", payment_plan: "1m",
+    sport_id: "", time_slot_id: "", age_group: "kids",
     joining_date: new Date().toISOString().slice(0, 10),
   });
 
@@ -76,7 +82,6 @@ export default function CoachCommunityDetail() {
         .from("coaches").select("id").eq("coach_id", profile!.coach_id!).maybeSingle();
       if (!coachRecord) { navigate("/coach/dashboard"); return; }
 
-      // Verify coach has assignments in this community
       const { data: assignments } = await supabase
         .from("coach_assignments")
         .select("sport_id")
@@ -92,12 +97,13 @@ export default function CoachCommunityDetail() {
       const sportIds = assignments.map(a => a.sport_id);
       setAssignedSportIds(sportIds);
 
-      const [{ data: comm }, { data: sportsData }, { data: slotsData }, { data: studentsData }, { data: pricingData }] = await Promise.all([
+      const [{ data: comm }, { data: sportsData }, { data: slotsData }, { data: studentsData }, { data: pricingData }, { data: packsData }] = await Promise.all([
         supabase.from("communities").select("name, short_code").eq("id", communityId!).maybeSingle(),
-        supabase.from("sports").select("id, name, icon").in("id", sportIds),
+        supabase.from("sports").select("*").in("id", sportIds),
         supabase.from("time_slots").select("id, sport_id, start_time, end_time, age_group, batch_type").eq("community_id", communityId!).in("sport_id", sportIds).eq("is_active", true).order("start_time"),
         supabase.from("students").select("id, student_id, name, age, parent_name, parent_whatsapp, batch_type, age_group, fee_status, fee_amount, sport_id, time_slot_id").eq("community_id", communityId!).in("sport_id", sportIds).eq("is_active", true).order("name"),
         supabase.from("sport_pricing").select("*").eq("community_id", communityId!).in("sport_id", sportIds),
+        supabase.from("session_pack_pricing").select("*").in("sport_id", sportIds).order("session_count"),
       ]);
 
       setCommunityName(comm?.name || "");
@@ -106,6 +112,7 @@ export default function CoachCommunityDetail() {
       setTimeSlots((slotsData as SlotRow[]) || []);
       setStudents((studentsData as StudentRow[]) || []);
       setPricing((pricingData as PricingRow[]) || []);
+      setPacks((packsData as PackRow[]) || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -121,7 +128,6 @@ export default function CoachCommunityDetail() {
     );
   }, [students, search]);
 
-  // Add student logic
   const availableSlots = useMemo(() => {
     if (!form.sport_id) return [];
     return timeSlots.filter(ts => ts.sport_id === form.sport_id && ts.age_group === form.age_group);
@@ -129,16 +135,42 @@ export default function CoachCommunityDetail() {
 
   const selectedSlot = timeSlots.find(ts => ts.id === form.time_slot_id);
   const selectedSport = sports.find(s => s.id === form.sport_id);
-  const studentPricing = form.sport_id ? pricing.find(p => p.sport_id === form.sport_id) : null;
 
-  const getFeeForPlan = (plan: string) => {
-    if (!studentPricing || !selectedSlot) return 0;
-    const bt = selectedSlot.batch_type;
-    const key = `${bt}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
-    return Number((studentPricing as any)[key]) || 0;
-  };
+  // Auto-compute default plan based on sport's pricing_type — coach never picks.
+  const autoEnrollment = useMemo(() => {
+    if (!selectedSport || !selectedSlot) {
+      return { amount: 0, sessions: 0, payment_plan: "1m", pricing_type: "duration_based", renewal_trigger: "date_based", planLabel: "" };
+    }
+    const sp = selectedSport;
+    const pricing_type = sp.pricing_type || "duration_based";
+    const renewal_trigger = sp.renewal_trigger || "date_based";
+    const isKid = form.student_type === "kid";
+    const batch_type = selectedSlot.batch_type;
 
-  const getFeeAmount = () => getFeeForPlan(form.payment_plan);
+    if (pricing_type === "custom_monthly") {
+      const amount = Number(isKid ? sp.kid_custom_monthly_price : sp.adult_custom_monthly_price) || Number(sp.custom_monthly_price) || 0;
+      const sessions = Number(isKid ? sp.kid_custom_monthly_sessions : sp.adult_custom_monthly_sessions) || Number(sp.custom_monthly_sessions) || 0;
+      return { amount, sessions, payment_plan: "1m", pricing_type, renewal_trigger, planLabel: "Custom Monthly (auto)" };
+    }
+    if (pricing_type === "session_pack") {
+      const sportPacks = packs.filter(p => p.sport_id === sp.id && p.is_active !== false);
+      const pack = [...sportPacks].sort((a, b) => (a.session_count || 0) - (b.session_count || 0))[0];
+      if (!pack) return { amount: 0, sessions: 0, payment_plan: "1m", pricing_type, renewal_trigger, planLabel: "" };
+      const priceKey = `${isKid ? "kid" : "adult"}_${batch_type}_price`;
+      const amount = Number(pack[priceKey]) || Number(pack[`${batch_type}_price`]) || 0;
+      return { amount, sessions: Number(pack.session_count) || 0, payment_plan: "1m", pricing_type, renewal_trigger, planLabel: `${pack.pack_name} (auto)` };
+    }
+    // duration_based — default 1 month
+    const row = pricing.find(p => p.sport_id === sp.id);
+    if (!row) return { amount: 0, sessions: 0, payment_plan: "1m", pricing_type, renewal_trigger, planLabel: "1 Month (auto)" };
+    const newKey = `${isKid ? "kid" : "adult"}_${batch_type}_1month`;
+    const legacyKey = `${batch_type}_1month`;
+    const amount = Number(row[newKey]) || Number(row[legacyKey]) || 0;
+    const perMonth = renewal_trigger === "session_based"
+      ? Number(isKid ? sp.kid_sessions_per_month : sp.adult_sessions_per_month) || Number(sp.sessions_per_month) || 0
+      : 0;
+    return { amount, sessions: perMonth, payment_plan: "1m", pricing_type, renewal_trigger, planLabel: "1 Month (auto)" };
+  }, [selectedSport, selectedSlot, form.student_type, pricing, packs]);
 
   const getStudentId = () => {
     const count = students.length + 1;
@@ -150,13 +182,29 @@ export default function CoachCommunityDetail() {
       name: "", age: "", parent_name: "", parent_whatsapp: "", parent_phone: "",
       student_type: "kid",
       sport_id: sports[0]?.id ?? "", time_slot_id: "", age_group: "kids",
-      payment_plan: "1m", joining_date: new Date().toISOString().slice(0, 10),
+      joining_date: new Date().toISOString().slice(0, 10),
     });
     setAddOpen(true);
   };
 
   const handleSave = async () => {
-    const feeAmount = getFeeAmount();
+    if (!selectedSport) {
+      toast({ title: "Select a sport", variant: "destructive" }); return;
+    }
+    // Audience guard
+    const allowsKids = selectedSport.allows_kids ?? true;
+    const allowsAdults = selectedSport.allows_adults ?? true;
+    if (form.student_type === "kid" && !allowsKids) {
+      toast({ title: "Sport not available", description: "This sport does not accept kid enrollments. Please contact admin.", variant: "destructive" });
+      return;
+    }
+    if (form.student_type === "adult" && !allowsAdults) {
+      toast({ title: "Sport not available", description: "This sport does not accept adult enrollments. Please contact admin.", variant: "destructive" });
+      return;
+    }
+
+    const { amount, sessions, payment_plan, pricing_type, renewal_trigger } = autoEnrollment;
+
     await createStudent.mutateAsync({
       student_id: getStudentId(),
       name: form.name,
@@ -170,13 +218,17 @@ export default function CoachCommunityDetail() {
       time_slot_id: form.time_slot_id,
       batch_type: selectedSlot?.batch_type || "standard",
       age_group: form.age_group,
-      payment_plan: form.payment_plan,
+      payment_plan,
       joining_date: form.joining_date,
-      fee_amount: feeAmount,
+      fee_amount: amount,
       batch_time: selectedSlot ? `${formatTime(selectedSlot.start_time)}-${formatTime(selectedSlot.end_time)}` : "",
+      pricing_type,
+      renewal_trigger,
+      total_sessions_paid: renewal_trigger === "session_based" ? sessions : 0,
+      sessions_remaining: renewal_trigger === "session_based" ? sessions : 0,
     });
     setAddOpen(false);
-    loadData(); // Refresh
+    loadData();
   };
 
   const getSportName = (sportId: string) => sports.find(s => s.id === sportId);
@@ -193,7 +245,6 @@ export default function CoachCommunityDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Top Bar */}
       <div className="sticky top-0 z-50 bg-card border-b border-border px-4 py-3">
         <div className="flex items-center gap-3 max-w-3xl mx-auto">
           <Button variant="ghost" size="icon" onClick={() => navigate("/coach/dashboard")}>
@@ -214,19 +265,6 @@ export default function CoachCommunityDetail() {
       </div>
 
       <div className="max-w-3xl mx-auto p-4 space-y-4">
-        {/* Quick actions */}
-        <div className="flex gap-2 flex-wrap">
-          {sports.map(sport => {
-            const assignment = assignedSportIds.includes(sport.id)
-              ? { sportId: sport.id }
-              : null;
-            if (!assignment) return null;
-            // Find the assignment ID for attendance navigation
-            return null; // Sports are shown as tags on student cards
-          })}
-        </div>
-
-        {/* Attendance quick access */}
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
           {sports.map(sport => (
             <Button
@@ -235,7 +273,6 @@ export default function CoachCommunityDetail() {
               size="sm"
               className="gap-1 shrink-0"
               onClick={async () => {
-                // Find assignment ID
                 const { data: coachRecord } = await supabase
                   .from("coaches").select("id").eq("coach_id", profile!.coach_id!).maybeSingle();
                 if (!coachRecord) return;
@@ -254,13 +291,11 @@ export default function CoachCommunityDetail() {
           ))}
         </div>
 
-        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." className="pl-10" />
         </div>
 
-        {/* Students List */}
         {filtered.length === 0 ? (
           <div className="text-center py-12">
             <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3 opacity-50" />
@@ -306,7 +341,6 @@ export default function CoachCommunityDetail() {
         )}
       </div>
 
-      {/* Add Student Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-auto">
           <DialogHeader><DialogTitle>Add New Student</DialogTitle></DialogHeader>
@@ -363,22 +397,6 @@ export default function CoachCommunityDetail() {
             </div>
 
             <div>
-              <Label>Payment Plan *</Label>
-              <RadioGroup value={form.payment_plan} onValueChange={v => setForm(p => ({ ...p, payment_plan: v }))} className="space-y-2 mt-1">
-                {(["1m", "3m", "6m"] as const).map(plan => {
-                  const label = plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months";
-                  const planFee = getFeeForPlan(plan);
-                  return (
-                    <div key={plan} className="flex items-center gap-2">
-                      <RadioGroupItem value={plan} id={`pp-${plan}`} />
-                      <Label htmlFor={`pp-${plan}`}>{label} — {formatCurrencyFull(planFee)}</Label>
-                    </div>
-                  );
-                })}
-              </RadioGroup>
-            </div>
-
-            <div>
               <Label>Joining Date *</Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -405,13 +423,20 @@ export default function CoachCommunityDetail() {
               <p className="text-primary font-mono text-lg">{getStudentId()}</p>
             </div>
 
-            {form.name && selectedSlot && (
+            {form.name && selectedSlot && selectedSport && (
               <div className="bg-muted/50 rounded-lg p-4 space-y-1 text-sm">
                 <p className="font-semibold mb-2">SUMMARY</p>
                 <p>Student: {form.name} ({getStudentId()})</p>
-                <p>Sport: {selectedSport?.icon} {selectedSport?.name} ({selectedSlot.batch_type})</p>
+                <p>Sport: {selectedSport.icon} {selectedSport.name} ({selectedSlot.batch_type})</p>
                 <p>Time: {formatTime(selectedSlot.start_time)} - {formatTime(selectedSlot.end_time)}</p>
-                <p>Amount: {formatCurrencyFull(getFeeAmount())}</p>
+                <p>Plan: {autoEnrollment.planLabel || "—"}</p>
+                <p>Amount: {formatCurrencyFull(autoEnrollment.amount)}</p>
+                {autoEnrollment.renewal_trigger === "session_based" && (
+                  <p>Sessions: {autoEnrollment.sessions}</p>
+                )}
+                <p className="text-[11px] text-muted-foreground pt-1">
+                  Plan auto-applied. Admin can change it later from the student profile.
+                </p>
                 <div className="mt-2 pt-2 border-t border-border">
                   <p className="text-primary">✨ NEW ENROLLMENT</p>
                   <p className="text-muted-foreground">⏳ Awaiting First Payment</p>
