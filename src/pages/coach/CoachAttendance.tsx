@@ -294,12 +294,12 @@ export default function CoachAttendance() {
             <CardHeader>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary" />
+                  <CalendarIcon className="h-4 w-4 text-primary" />
                   {isPastDate ? "View" : "Mark"} — {selectedDate}
                 </CardTitle>
                 {canEdit && (
-                  <Button variant="outline" size="sm" className="gap-1" onClick={() => setIsEditMode(true)}>
-                    <Edit2 className="h-3 w-3" /> Edit
+                  <Button variant="outline" size="sm" className="gap-1 border-primary/40 text-primary hover:bg-primary/10" onClick={() => setIsEditMode(true)}>
+                    <Edit2 className="h-3 w-3" /> Edit Past Attendance
                   </Button>
                 )}
                 {isEditMode && (
