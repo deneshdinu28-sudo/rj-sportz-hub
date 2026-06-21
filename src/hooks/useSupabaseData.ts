@@ -408,6 +408,15 @@ export function useCreateStudent() {
       pricing_type?: string; renewal_trigger?: string;
       total_sessions_paid?: number; sessions_remaining?: number;
     }) => {
+      // Snapshot the sport's current price version so future price changes
+      // don't retroactively change this student's locked-in amount.
+      const { data: sportRow } = await supabase
+        .from("sports")
+        .select("current_price_version_id")
+        .eq("id", input.sport_id)
+        .maybeSingle();
+      const priceVersionId = (sportRow as any)?.current_price_version_id ?? null;
+
       const { data, error } = await supabase.from("students").insert({
         student_id: input.student_id, name: input.name, age: input.age, parent_name: input.parent_name,
         parent_whatsapp: input.parent_whatsapp, parent_phone: input.parent_phone || input.parent_whatsapp,
@@ -421,6 +430,9 @@ export function useCreateStudent() {
         total_sessions_paid: input.total_sessions_paid ?? 0,
         sessions_remaining: input.sessions_remaining ?? 0,
         sessions_completed: 0,
+        locked_price: input.fee_amount,
+        locked_price_sessions: input.total_sessions_paid ?? 0,
+        price_version_id: priceVersionId,
       } as never).select().single();
 
       if (error) throw error;
@@ -428,6 +440,8 @@ export function useCreateStudent() {
     },
     onSuccess: (data, vars) => {
       qc.invalidateQueries({ queryKey: ["students", vars.community_id] });
+      qc.invalidateQueries({ queryKey: ["students"] });
+      qc.invalidateQueries({ queryKey: ["student"] });
       qc.invalidateQueries({ queryKey: ["timeSlots", vars.community_id] });
       qc.invalidateQueries({ queryKey: ["communities"] });
       toast({ title: "Student enrolled!", description: `${data.name} — ${data.student_id}` });
