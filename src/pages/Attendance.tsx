@@ -171,7 +171,27 @@ export default function Attendance() {
       <Card>
         <CardContent className="p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div><Label>Date</Label><Input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setLoaded(false); }} /></div>
+            <div>
+              <Label>Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(new Date(selectedDate + "T00:00:00"), "dd MMM yyyy") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate ? new Date(selectedDate + "T00:00:00") : undefined}
+                    onSelect={(d) => { if (d) { setSelectedDate(format(d, "yyyy-MM-dd")); setLoaded(false); } }}
+                    disabled={(d) => d > new Date()}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
             <div>
               <Label>Community</Label>
               <Select value={selectedCommunity} onValueChange={(v) => { setSelectedCommunity(v); setSelectedSport(""); setSelectedSlot(""); setLoaded(false); }}>
