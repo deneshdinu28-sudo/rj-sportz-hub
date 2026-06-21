@@ -249,11 +249,24 @@ export default function CoachAttendance() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Date</Label>
-                <Input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => { setSelectedDate(e.target.value); setLoaded(false); }}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !selectedDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(new Date(selectedDate + "T00:00:00"), "dd MMM yyyy") : "Pick date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate ? new Date(selectedDate + "T00:00:00") : undefined}
+                      onSelect={(d) => { if (d) { setSelectedDate(format(d, "yyyy-MM-dd")); setLoaded(false); } }}
+                      disabled={(d) => d > new Date()}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <Label className="text-xs">Time Slot</Label>
