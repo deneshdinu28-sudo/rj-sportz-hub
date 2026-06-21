@@ -742,6 +742,8 @@ export default function CommunityDetail() {
               </Select>
             </div>
 
+            {/* Visual separator so pricing/plan never overlaps Time Slot trigger */}
+            {selectedSport && <div className="border-t border-border" />}
             {/* ADAPTIVE PAYMENT PLAN — based on sport's pricing_type */}
             {selectedSport && sportPricingType === "duration_based" && (
               <div>
