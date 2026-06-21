@@ -283,7 +283,7 @@ export default function CoachAttendance() {
               </div>
             </div>
             <Button onClick={handleLoad} disabled={!selectedSlot} className="w-full gap-2">
-              <Calendar className="h-4 w-4" /> Load Students
+              <CalendarIcon className="h-4 w-4" /> Load Students
             </Button>
           </CardContent>
         </Card>
