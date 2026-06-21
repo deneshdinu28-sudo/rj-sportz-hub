@@ -284,11 +284,27 @@ export function useUpdateSportFull() {
       pricing: PricingConfig;
     }) => {
       const { sportRow, pricingRow, packRows } = pricingConfigToRows(input.pricing, input.community_id, input.sport_id);
-      // Update sport row
+
+      // Generate a new price version so existing students remain on their locked price
+      // until they renew. New enrollments after this point pick up the new version.
+      const newVersionId = (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+        ? (crypto as any).randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+      (sportRow as any).current_price_version_id = newVersionId;
+      (sportRow as any).price_last_changed_at = new Date().toISOString();
+
+      // Snapshot affected students before update so we can notify them.
+      const { data: affected } = await supabase
+        .from("students")
+        .select("id, name, parent_name, parent_whatsapp, locked_price, price_version_id")
+        .eq("sport_id", input.sport_id)
+        .eq("is_active", true);
+
+      const { data: sportInfo } = await supabase.from("sports").select("name").eq("id", input.sport_id).maybeSingle();
+
       const { error: sErr } = await supabase.from("sports").update(sportRow as any).eq("id", input.sport_id);
       if (sErr) throw sErr;
 
-      // Upsert sport_pricing
       if (input.pricing_id) {
         const { error } = await supabase.from("sport_pricing").update(pricingRow as any).eq("id", input.pricing_id);
         if (error) throw error;
@@ -297,7 +313,6 @@ export function useUpdateSportFull() {
         if (error) throw error;
       }
 
-      // Replace session packs
       if (input.pricing.pricing_type === "session_pack") {
         const { error: delErr } = await supabase.from("session_pack_pricing").delete().eq("sport_id", input.sport_id);
         if (delErr) throw delErr;
@@ -308,13 +323,38 @@ export function useUpdateSportFull() {
       } else {
         await supabase.from("session_pack_pricing").update({ is_active: false }).eq("sport_id", input.sport_id);
       }
+
+      // Build WhatsApp notification links for students still on the OLD price version.
+      const sportName = sportInfo?.name ?? "your sport";
+      // Use 1-month standard adult price (or first available) as the "new rate" headline.
+      const newRate =
+        Number((sportRow as any).standard_fee) ||
+        Number((pricingRow as any).adult_standard_1month) ||
+        Number((pricingRow as any).standard_1month) ||
+        0;
+      const toNotify = (affected ?? []).filter((s: any) => s.price_version_id !== newVersionId && s.parent_whatsapp);
+      return { newVersionId, toNotify, sportName, newRate };
     },
 
-    onSuccess: (_, vars) => {
+    onSuccess: (result, vars) => {
       qc.invalidateQueries({ queryKey: ["sports", vars.community_id] });
       qc.invalidateQueries({ queryKey: ["sportPricing", vars.community_id] });
       qc.invalidateQueries({ queryKey: ["sessionPacks"] });
+      qc.invalidateQueries({ queryKey: ["students"] });
       toast({ title: "Sport pricing updated!" });
+
+      if (result?.toNotify?.length) {
+        for (const s of result.toNotify) {
+          const msg = `📢 Pricing Update - RJ Sportz\n\nDear ${s.parent_name || "Parent"},\n\nPlease note that pricing for ${result.sportName} has been updated. Your current plan for ${s.name} continues as is at your existing rate until it ends. Starting from your next renewal, the new pricing will apply.\n\nSport: ${result.sportName}\nYour Current Rate: ₹${Number(s.locked_price) || 0}\nNew Rate (from next renewal): ₹${result.newRate}\n\nQuestions? Contact us anytime.\n\nRJ Sportz Team`;
+          try {
+            window.open(`https://wa.me/91${s.parent_whatsapp}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+          } catch { /* ignore */ }
+        }
+        toast({
+          title: `Price update — ${result.toNotify.length} parent(s) to notify`,
+          description: "WhatsApp tabs opened. Click send on each.",
+        });
+      }
     },
     onError: (err: Error) => { toast({ title: "Failed to update sport", description: err.message, variant: "destructive" }); },
   });
