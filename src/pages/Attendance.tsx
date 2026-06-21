@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CheckCircle, Users, Calendar, Loader2, Edit2, AlertCircle } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CheckCircle, Users, Calendar as CalendarIcon, Loader2, Edit2, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useCommunities, useSports, useStudents, useTimeSlots, useCreateAttendance, useAttendanceByDate, formatTime } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
