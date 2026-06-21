@@ -25,9 +25,12 @@ export function pricingConfigToRows(cfg: PricingConfig, community_id: string, sp
     const prefix = useAdult ? "adult_" : "kid_";
     return num((cfg as any)[`${prefix}${k}`]);
   };
+  // Session-pack pricing is always session-based by design.
+  const effectiveRenewal: "date_based" | "session_based" =
+    cfg.pricing_type === "session_pack" ? "session_based" : cfg.renewal_trigger;
   const sportRow: Record<string, any> = {
     pricing_type: cfg.pricing_type,
-    renewal_trigger: cfg.pricing_type === "custom_monthly" && cfg.renewal_trigger !== "date_based" && cfg.renewal_trigger !== "session_based" ? "session_based" : cfg.renewal_trigger,
+    renewal_trigger: effectiveRenewal,
     allows_kids: cfg.allows_kids,
     allows_adults: cfg.allows_adults,
     standard_fee: pick("standard_1month"),
