@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,10 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, CheckCircle, Loader2, Calendar, Edit2, AlertCircle } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { ArrowLeft, CheckCircle, Loader2, Calendar as CalendarIcon, Edit2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatTime, applySessionDeductions, openSessionReminderLinks } from "@/hooks/useSupabaseData";
 
