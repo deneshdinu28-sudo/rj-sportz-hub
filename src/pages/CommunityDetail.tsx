@@ -198,17 +198,23 @@ export default function CommunityDetail() {
   };
 
   const handleSaveStudent = async () => {
-    // Audience guard
+    // Audience guard — runs both at sport-select time AND at save time
     const sp: any = selectedSport;
     if (sp) {
-      const allowsKids = sp.allows_kids ?? true;
-      const allowsAdults = sp.allows_adults ?? true;
+      const allowsKids = sp.allows_kids !== false; // treat null/undefined as true
+      const allowsAdults = sp.allows_adults !== false;
+      // eslint-disable-next-line no-console
+      console.log("[Audience guard / admin save]", {
+        sport: sp.name, student_type: studentForm.student_type,
+        allows_kids_raw: sp.allows_kids, allows_adults_raw: sp.allows_adults,
+        allowsKids, allowsAdults,
+      });
       if (studentForm.student_type === "kid" && !allowsKids) {
-        toast({ title: "Sport not available", description: "This sport does not accept kid enrollments. Please select a different sport or contact admin.", variant: "destructive" });
+        toast({ title: "Sport not available", description: `${sp.name} is for adults only — cannot enroll a kid.`, variant: "destructive" });
         return;
       }
       if (studentForm.student_type === "adult" && !allowsAdults) {
-        toast({ title: "Sport not available", description: "This sport does not accept adult enrollments. Please select a different sport or contact admin.", variant: "destructive" });
+        toast({ title: "Sport not available", description: `${sp.name} is for kids only — cannot enroll an adult.`, variant: "destructive" });
         return;
       }
     }
@@ -685,14 +691,16 @@ export default function CommunityDetail() {
                 onValueChange={(v) => {
                   const sp: any = commSports.find((s) => s.id === v);
                   if (sp) {
-                    const allowsKids = sp.allows_kids ?? true;
-                    const allowsAdults = sp.allows_adults ?? true;
+                    const allowsKids = sp.allows_kids !== false;
+                    const allowsAdults = sp.allows_adults !== false;
+                    // eslint-disable-next-line no-console
+                    console.log("[Audience guard / admin select]", { sport: sp.name, student_type: studentForm.student_type, allows_kids_raw: sp.allows_kids, allows_adults_raw: sp.allows_adults });
                     if (studentForm.student_type === "kid" && !allowsKids) {
-                      toast({ title: "Sport not available", description: "This sport does not accept kid enrollments. Please select a different sport or contact admin.", variant: "destructive" });
+                      toast({ title: "Sport not available", description: `${sp.name} is for adults only — cannot enroll a kid.`, variant: "destructive" });
                       return;
                     }
                     if (studentForm.student_type === "adult" && !allowsAdults) {
-                      toast({ title: "Sport not available", description: "This sport does not accept adult enrollments. Please select a different sport or contact admin.", variant: "destructive" });
+                      toast({ title: "Sport not available", description: `${sp.name} is for kids only — cannot enroll an adult.`, variant: "destructive" });
                       return;
                     }
                   }
@@ -734,6 +742,8 @@ export default function CommunityDetail() {
               </Select>
             </div>
 
+            {/* Visual separator so pricing/plan never overlaps Time Slot trigger */}
+            {selectedSport && <div className="border-t border-border" />}
             {/* ADAPTIVE PAYMENT PLAN — based on sport's pricing_type */}
             {selectedSport && sportPricingType === "duration_based" && (
               <div>

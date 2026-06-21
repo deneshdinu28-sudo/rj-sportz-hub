@@ -191,15 +191,21 @@ export default function CoachCommunityDetail() {
     if (!selectedSport) {
       toast({ title: "Select a sport", variant: "destructive" }); return;
     }
-    // Audience guard
-    const allowsKids = selectedSport.allows_kids ?? true;
-    const allowsAdults = selectedSport.allows_adults ?? true;
+    // Audience guard — checked both directions
+    const allowsKids = (selectedSport as any).allows_kids !== false;
+    const allowsAdults = (selectedSport as any).allows_adults !== false;
+    // eslint-disable-next-line no-console
+    console.log("[Audience guard / coach save]", {
+      sport: (selectedSport as any).name, student_type: form.student_type,
+      allows_kids_raw: (selectedSport as any).allows_kids, allows_adults_raw: (selectedSport as any).allows_adults,
+      allowsKids, allowsAdults,
+    });
     if (form.student_type === "kid" && !allowsKids) {
-      toast({ title: "Sport not available", description: "This sport does not accept kid enrollments. Please contact admin.", variant: "destructive" });
+      toast({ title: "Sport not available", description: `${(selectedSport as any).name} is for adults only — cannot enroll a kid.`, variant: "destructive" });
       return;
     }
     if (form.student_type === "adult" && !allowsAdults) {
-      toast({ title: "Sport not available", description: "This sport does not accept adult enrollments. Please contact admin.", variant: "destructive" });
+      toast({ title: "Sport not available", description: `${(selectedSport as any).name} is for kids only — cannot enroll an adult.`, variant: "destructive" });
       return;
     }
 

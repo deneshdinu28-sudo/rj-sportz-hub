@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CheckCircle, Users, Calendar, Loader2, Edit2, AlertCircle } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CheckCircle, Users, Calendar as CalendarIcon, Loader2, Edit2, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useCommunities, useSports, useStudents, useTimeSlots, useCreateAttendance, useAttendanceByDate, formatTime } from "@/hooks/useSupabaseData";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -167,7 +171,27 @@ export default function Attendance() {
       <Card>
         <CardContent className="p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div><Label>Date</Label><Input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setLoaded(false); }} /></div>
+            <div>
+              <Label>Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(new Date(selectedDate + "T00:00:00"), "dd MMM yyyy") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate ? new Date(selectedDate + "T00:00:00") : undefined}
+                    onSelect={(d) => { if (d) { setSelectedDate(format(d, "yyyy-MM-dd")); setLoaded(false); } }}
+                    disabled={(d) => d > new Date()}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
             <div>
               <Label>Community</Label>
               <Select value={selectedCommunity} onValueChange={(v) => { setSelectedCommunity(v); setSelectedSport(""); setSelectedSlot(""); setLoaded(false); }}>
@@ -213,7 +237,7 @@ export default function Attendance() {
           <CardHeader>
             <div className="flex items-center justify-between flex-wrap gap-2">
               <CardTitle className="text-base flex items-center gap-2 flex-wrap">
-                <Calendar className="h-4 w-4 text-primary" />
+                <CalendarIcon className="h-4 w-4 text-primary" />
                 {isPastDate ? "View" : "Mark"} Attendance — {selectedDate}
                 {selectedSportData && <span className="text-muted-foreground font-normal">• {selectedSportData.icon} {selectedSportData.name}</span>}
                 {selectedSlotData && <span className="text-muted-foreground font-normal">• {formatTime(selectedSlotData.start_time)}-{formatTime(selectedSlotData.end_time)}</span>}

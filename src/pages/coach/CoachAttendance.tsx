@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,10 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, CheckCircle, Loader2, Calendar, Edit2, AlertCircle } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { ArrowLeft, CheckCircle, Loader2, Calendar as CalendarIcon, Edit2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatTime, applySessionDeductions, openSessionReminderLinks } from "@/hooks/useSupabaseData";
 
@@ -245,11 +249,24 @@ export default function CoachAttendance() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Date</Label>
-                <Input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => { setSelectedDate(e.target.value); setLoaded(false); }}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !selectedDate && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(new Date(selectedDate + "T00:00:00"), "dd MMM yyyy") : "Pick date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate ? new Date(selectedDate + "T00:00:00") : undefined}
+                      onSelect={(d) => { if (d) { setSelectedDate(format(d, "yyyy-MM-dd")); setLoaded(false); } }}
+                      disabled={(d) => d > new Date()}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <Label className="text-xs">Time Slot</Label>
@@ -266,7 +283,7 @@ export default function CoachAttendance() {
               </div>
             </div>
             <Button onClick={handleLoad} disabled={!selectedSlot} className="w-full gap-2">
-              <Calendar className="h-4 w-4" /> Load Students
+              <CalendarIcon className="h-4 w-4" /> Load Students
             </Button>
           </CardContent>
         </Card>
@@ -277,12 +294,12 @@ export default function CoachAttendance() {
             <CardHeader>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary" />
+                  <CalendarIcon className="h-4 w-4 text-primary" />
                   {isPastDate ? "View" : "Mark"} — {selectedDate}
                 </CardTitle>
                 {canEdit && (
-                  <Button variant="outline" size="sm" className="gap-1" onClick={() => setIsEditMode(true)}>
-                    <Edit2 className="h-3 w-3" /> Edit
+                  <Button variant="outline" size="sm" className="gap-1 border-primary/40 text-primary hover:bg-primary/10" onClick={() => setIsEditMode(true)}>
+                    <Edit2 className="h-3 w-3" /> Edit Past Attendance
                   </Button>
                 )}
                 {isEditMode && (

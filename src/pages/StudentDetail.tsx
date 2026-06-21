@@ -294,7 +294,7 @@ export default function StudentDetail() {
             <Card>
               <CardHeader><CardTitle className="text-sm">Payment Info</CardTitle></CardHeader>
               <CardContent className="space-y-2 text-sm">
-                {(student as any).renewal_trigger === "session_based" ? (() => {
+                {((student as any).renewal_trigger === "session_based" || Number((student as any).total_sessions_paid) > 0 || (student as any).pricing_type === "session_pack") ? (() => {
                   const total = Number((student as any).total_sessions_paid) || 0;
                   const completed = Number((student as any).sessions_completed) || 0;
                   const remaining = Number((student as any).sessions_remaining) || 0;

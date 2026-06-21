@@ -736,6 +736,7 @@ export type Database = {
           coach_phone: string
           community_id: string
           created_at: string
+          current_price_version_id: string | null
           custom_monthly_price: number | null
           custom_monthly_sessions: number | null
           icon: string
@@ -747,6 +748,7 @@ export type Database = {
           kid_sessions_per_month: number | null
           name: string
           premium_fee: number
+          price_last_changed_at: string | null
           pricing_type: string | null
           renewal_days: number | null
           renewal_trigger: string | null
@@ -768,6 +770,7 @@ export type Database = {
           coach_phone?: string
           community_id: string
           created_at?: string
+          current_price_version_id?: string | null
           custom_monthly_price?: number | null
           custom_monthly_sessions?: number | null
           icon?: string
@@ -779,6 +782,7 @@ export type Database = {
           kid_sessions_per_month?: number | null
           name: string
           premium_fee?: number
+          price_last_changed_at?: string | null
           pricing_type?: string | null
           renewal_days?: number | null
           renewal_trigger?: string | null
@@ -800,6 +804,7 @@ export type Database = {
           coach_phone?: string
           community_id?: string
           created_at?: string
+          current_price_version_id?: string | null
           custom_monthly_price?: number | null
           custom_monthly_sessions?: number | null
           icon?: string
@@ -811,6 +816,7 @@ export type Database = {
           kid_sessions_per_month?: number | null
           name?: string
           premium_fee?: number
+          price_last_changed_at?: string | null
           pricing_type?: string | null
           renewal_days?: number | null
           renewal_trigger?: string | null
@@ -849,6 +855,8 @@ export type Database = {
           is_active: boolean
           is_on_hold: boolean | null
           joining_date: string
+          locked_price: number | null
+          locked_price_sessions: number | null
           name: string
           next_due_date: string | null
           parent_name: string
@@ -859,6 +867,7 @@ export type Database = {
           payment_start_date: string | null
           plan_change_effective_from: string | null
           plan_change_requested_at: string | null
+          price_version_id: string | null
           pricing_type: string | null
           renewal_trigger: string | null
           sessions_completed: number | null
@@ -889,6 +898,8 @@ export type Database = {
           is_active?: boolean
           is_on_hold?: boolean | null
           joining_date?: string
+          locked_price?: number | null
+          locked_price_sessions?: number | null
           name: string
           next_due_date?: string | null
           parent_name?: string
@@ -899,6 +910,7 @@ export type Database = {
           payment_start_date?: string | null
           plan_change_effective_from?: string | null
           plan_change_requested_at?: string | null
+          price_version_id?: string | null
           pricing_type?: string | null
           renewal_trigger?: string | null
           sessions_completed?: number | null
@@ -929,6 +941,8 @@ export type Database = {
           is_active?: boolean
           is_on_hold?: boolean | null
           joining_date?: string
+          locked_price?: number | null
+          locked_price_sessions?: number | null
           name?: string
           next_due_date?: string | null
           parent_name?: string
@@ -939,6 +953,7 @@ export type Database = {
           payment_start_date?: string | null
           plan_change_effective_from?: string | null
           plan_change_requested_at?: string | null
+          price_version_id?: string | null
           pricing_type?: string | null
           renewal_trigger?: string | null
           sessions_completed?: number | null
