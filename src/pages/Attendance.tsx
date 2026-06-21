@@ -217,7 +217,7 @@ export default function Attendance() {
           <CardHeader>
             <div className="flex items-center justify-between flex-wrap gap-2">
               <CardTitle className="text-base flex items-center gap-2 flex-wrap">
-                <Calendar className="h-4 w-4 text-primary" />
+                <CalendarIcon className="h-4 w-4 text-primary" />
                 {isPastDate ? "View" : "Mark"} Attendance — {selectedDate}
                 {selectedSportData && <span className="text-muted-foreground font-normal">• {selectedSportData.icon} {selectedSportData.name}</span>}
                 {selectedSlotData && <span className="text-muted-foreground font-normal">• {formatTime(selectedSlotData.start_time)}-{formatTime(selectedSlotData.end_time)}</span>}
