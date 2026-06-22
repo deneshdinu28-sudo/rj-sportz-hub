@@ -329,6 +329,11 @@ export default function Attendance() {
                   {createAttendance.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><CheckCircle className="h-4 w-4" /> Submit Attendance</>}
                 </Button>
               )}
+              {isPastDate && isEditMode && !existingRecords && (
+                <Button onClick={handleSubmit} disabled={createAttendance.isPending || slotStudents.length === 0} className="gap-2">
+                  {createAttendance.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><CheckCircle className="h-4 w-4" /> Submit Attendance</>}
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
