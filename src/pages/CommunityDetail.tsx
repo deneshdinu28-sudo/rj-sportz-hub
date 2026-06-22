@@ -89,6 +89,10 @@ export default function CommunityDetail() {
   const { data: commPacks = [] } = useSessionPacks(id);
   const updateSportFull = useUpdateSportFull();
 
+  // Age vs student_type mismatch confirmation
+  const [ageConfirmOpen, setAgeConfirmOpen] = useState(false);
+  const [ageConfirmMsg, setAgeConfirmMsg] = useState("");
+
   const selectedSport = commSports.find((s) => s.id === studentForm.sport_id);
   const studentSlots = useMemo(() => {
     if (!studentForm.sport_id) return [];
