@@ -59,7 +59,10 @@ export default function CoachDashboard() {
 
   useEffect(() => {
     if (profile?.coach_id) loadData();
-  }, [profile]);
+    // Only re-run when the coach_id itself changes — depending on `profile`
+    // (a new object reference each render) caused an infinite reload loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.coach_id]);
 
   const loadData = async () => {
     try {
