@@ -379,7 +379,13 @@ export default function CoachCommunityDetail() {
             <div><Label>Student Name *</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Rahul Kumar" /></div>
             <div><Label>Age *</Label><Input type="number" value={form.age} onChange={e => {
               const age = parseInt(e.target.value) || 0;
-              setForm(p => ({ ...p, age: e.target.value, age_group: age < 18 ? "kids" : "adults", time_slot_id: "" }));
+              setForm(p => ({
+                ...p,
+                age: e.target.value,
+                age_group: age < 18 ? "kids" : "adults",
+                student_type: age > 0 ? (age < 18 ? "kid" : "adult") : p.student_type,
+                time_slot_id: "",
+              }));
             }} placeholder="12" min={3} max={60} /></div>
             <div><Label>Parent Name *</Label><Input value={form.parent_name} onChange={e => setForm(p => ({ ...p, parent_name: e.target.value }))} placeholder="Suresh Kumar" /></div>
             <div><Label>WhatsApp Number *</Label><Input value={form.parent_whatsapp} onChange={e => setForm(p => ({ ...p, parent_whatsapp: e.target.value }))} placeholder="9876543210" maxLength={10} /></div>
