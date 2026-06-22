@@ -214,7 +214,7 @@ export default function CoachAttendance() {
 
   // Coaches have full edit access - past dates with existing records show edit button
   const isPastDate = selectedDate < today;
-  const canEdit = isPastDate && existingRecords && !isEditMode;
+  const canEdit = isPastDate && !isEditMode;
   const isReadOnly = false; // Coaches always have write access
 
   if (loading) {

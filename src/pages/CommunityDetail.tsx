@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -87,6 +88,10 @@ export default function CommunityDetail() {
   const [editSportCfg, setEditSportCfg] = useState<PricingConfig>(defaultPricingConfig());
   const { data: commPacks = [] } = useSessionPacks(id);
   const updateSportFull = useUpdateSportFull();
+
+  // Age vs student_type mismatch confirmation
+  const [ageConfirmOpen, setAgeConfirmOpen] = useState(false);
+  const [ageConfirmMsg, setAgeConfirmMsg] = useState("");
 
   const selectedSport = commSports.find((s) => s.id === studentForm.sport_id);
   const studentSlots = useMemo(() => {
@@ -197,31 +202,7 @@ export default function CommunityDetail() {
     setAddStudentOpen(true);
   };
 
-  const handleSaveStudent = async () => {
-    // Audience guard — runs both at sport-select time AND at save time
-    const sp: any = selectedSport;
-    if (sp) {
-      const allowsKids = sp.allows_kids !== false; // treat null/undefined as true
-      const allowsAdults = sp.allows_adults !== false;
-      // eslint-disable-next-line no-console
-      console.log("[Audience guard / admin save]", {
-        sport: sp.name, student_type: studentForm.student_type,
-        allows_kids_raw: sp.allows_kids, allows_adults_raw: sp.allows_adults,
-        allowsKids, allowsAdults,
-      });
-      if (studentForm.student_type === "kid" && !allowsKids) {
-        toast({ title: "Sport not available", description: `${sp.name} is for adults only — cannot enroll a kid.`, variant: "destructive" });
-        return;
-      }
-      if (studentForm.student_type === "adult" && !allowsAdults) {
-        toast({ title: "Sport not available", description: `${sp.name} is for kids only — cannot enroll an adult.`, variant: "destructive" });
-        return;
-      }
-    }
-    if (sportPricingType === "session_pack" && !studentForm.selected_pack_id) {
-      toast({ title: "Pick a session pack", variant: "destructive" });
-      return;
-    }
+  const proceedCreateStudent = async () => {
     const { amount, sessions } = enrollmentPreview;
     const ageNum = parseInt(studentForm.age) || 10;
     await createStudent.mutateAsync({
@@ -247,6 +228,43 @@ export default function CommunityDetail() {
       sessions_remaining: sportRenewalTrigger === "session_based" ? sessions : 0,
     });
     setAddStudentOpen(false);
+  };
+
+  const handleSaveStudent = async () => {
+    // Audience guard — runs both at sport-select time AND at save time
+    const sp: any = selectedSport;
+    if (sp) {
+      const allowsKids = sp.allows_kids !== false;
+      const allowsAdults = sp.allows_adults !== false;
+      if (studentForm.student_type === "kid" && !allowsKids) {
+        toast({ title: "Sport not available", description: `${sp.name} is for adults only — cannot enroll a kid.`, variant: "destructive" });
+        return;
+      }
+      if (studentForm.student_type === "adult" && !allowsAdults) {
+        toast({ title: "Sport not available", description: `${sp.name} is for kids only — cannot enroll an adult.`, variant: "destructive" });
+        return;
+      }
+    }
+    if (sportPricingType === "session_pack" && !studentForm.selected_pack_id) {
+      toast({ title: "Pick a session pack", variant: "destructive" });
+      return;
+    }
+
+    // Age vs student_type mismatch check — confirm before saving
+    const ageNum = parseInt(studentForm.age) || 0;
+    if (ageNum > 0) {
+      if (ageNum < 18 && studentForm.student_type === "adult") {
+        setAgeConfirmMsg(`Age entered is ${ageNum}, which is under 18, but you've selected Adult. Are you sure you want to continue?`);
+        setAgeConfirmOpen(true);
+        return;
+      }
+      if (ageNum >= 18 && studentForm.student_type === "kid") {
+        setAgeConfirmMsg(`Age entered is ${ageNum}, which is 18 or above, but you've selected Kid. Are you sure you want to continue?`);
+        setAgeConfirmOpen(true);
+        return;
+      }
+    }
+    await proceedCreateStudent();
   };
 
 
@@ -681,7 +699,13 @@ export default function CommunityDetail() {
             <div><Label>Student Name *</Label><Input value={studentForm.name} onChange={(e) => setStudentForm((p) => ({ ...p, name: e.target.value }))} placeholder="Rahul Kumar" /></div>
             <div><Label>Age *</Label><Input type="number" value={studentForm.age} onChange={(e) => {
               const age = parseInt(e.target.value) || 0;
-              setStudentForm((p) => ({ ...p, age: e.target.value, age_group: age < 18 ? "kids" : "adults", time_slot_id: "" }));
+              setStudentForm((p) => ({
+                ...p,
+                age: e.target.value,
+                age_group: age < 18 ? "kids" : "adults",
+                student_type: age > 0 ? (age < 18 ? "kid" : "adult") : p.student_type,
+                time_slot_id: "",
+              }));
             }} placeholder="12" min={3} max={60} /></div>
             <div><Label>Parent Name *</Label><Input value={studentForm.parent_name} onChange={(e) => setStudentForm((p) => ({ ...p, parent_name: e.target.value }))} placeholder="Suresh Kumar" /></div>
             <div><Label>WhatsApp Number *</Label><Input value={studentForm.parent_whatsapp} onChange={(e) => setStudentForm((p) => ({ ...p, parent_whatsapp: e.target.value }))} placeholder="9876543210" maxLength={10} /></div>
@@ -1022,6 +1046,22 @@ export default function CommunityDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Age vs student type mismatch confirmation */}
+      <AlertDialog open={ageConfirmOpen} onOpenChange={setAgeConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Age and Student Type don't match</AlertDialogTitle>
+            <AlertDialogDescription>{ageConfirmMsg}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, Go Back</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => { setAgeConfirmOpen(false); await proceedCreateStudent(); }}>
+              Yes, Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

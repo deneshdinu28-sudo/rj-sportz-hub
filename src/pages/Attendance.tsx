@@ -152,8 +152,8 @@ export default function Attendance() {
     return { present: vals.filter((v) => v === "present").length, absent: vals.filter((v) => v === "absent").length };
   }, [attendance]);
 
-  const canEdit = isPastDate && existingRecords && !isEditMode;
-  const isReadOnly = isPastDate && !isEditMode;
+  const canEdit = isPastDate && !isEditMode;
+  const isReadOnly = isPastDate && !isEditMode && existingRecords;
 
   if (isLoading) {
     return (
@@ -325,6 +325,11 @@ export default function Attendance() {
                 <span className="text-destructive font-medium">Absent: {summary.absent}</span>
               </div>
               {!isPastDate && !existingRecords && (
+                <Button onClick={handleSubmit} disabled={createAttendance.isPending || slotStudents.length === 0} className="gap-2">
+                  {createAttendance.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><CheckCircle className="h-4 w-4" /> Submit Attendance</>}
+                </Button>
+              )}
+              {isPastDate && isEditMode && !existingRecords && (
                 <Button onClick={handleSubmit} disabled={createAttendance.isPending || slotStudents.length === 0} className="gap-2">
                   {createAttendance.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><CheckCircle className="h-4 w-4" /> Submit Attendance</>}
                 </Button>

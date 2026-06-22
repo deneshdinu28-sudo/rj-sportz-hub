@@ -97,14 +97,36 @@ export default function CoachStudentDetail() {
             <div className="flex justify-between"><span className="text-muted-foreground">Community</span><span>{community?.name}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Sport</span><span>{sport?.icon} {sport?.name}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Batch</span><span>{student.batch_time} • {student.batch_type}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span>{student.payment_plan === "1m" ? "1 Month" : student.payment_plan === "3m" ? "3 Months" : "6 Months"}</span></div>
+            {((student as any).renewal_trigger === "session_based" || Number((student as any).total_sessions_paid) > 0 || (student as any).pricing_type === "session_pack") ? (() => {
+              const total = Number((student as any).total_sessions_paid) || 0;
+              const completed = Number((student as any).sessions_completed) || 0;
+              const remaining = Number((student as any).sessions_remaining) || 0;
+              const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+              return (
+                <>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span>Session Plan • {student.batch_type}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Sessions</span><span>{completed} of {total} completed</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Remaining</span><span className="font-semibold">{remaining}</span></div>
+                  <div className="space-y-1 pt-1">
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary shadow-[0_0_8px_rgba(57,255,20,0.6)] transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground text-right">{pct}% complete</p>
+                  </div>
+                </>
+              );
+            })() : (
+              <>
+                <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span>{student.payment_plan === "1m" ? "1 Month" : student.payment_plan === "3m" ? "3 Months" : "6 Months"}</span></div>
+                {student.payment_start_date && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Plan Start</span><span>{student.payment_start_date}</span></div>
+                )}
+                {student.next_due_date && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Next Due</span><span className="text-warning">{student.next_due_date}</span></div>
+                )}
+              </>
+            )}
             <div className="flex justify-between"><span className="text-muted-foreground">Joining Date</span><span>{student.joining_date}</span></div>
-            {student.payment_start_date && (
-              <div className="flex justify-between"><span className="text-muted-foreground">Plan Start</span><span>{student.payment_start_date}</span></div>
-            )}
-            {student.next_due_date && (
-              <div className="flex justify-between"><span className="text-muted-foreground">Next Due</span><span className="text-warning">{student.next_due_date}</span></div>
-            )}
           </CardContent>
         </Card>
 

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -74,7 +75,10 @@ export default function CoachCommunityDetail() {
     joining_date: new Date().toISOString().slice(0, 10),
   });
 
-  useEffect(() => { if (profile?.coach_id) loadData(); }, [communityId, profile]);
+  const [ageConfirmOpen, setAgeConfirmOpen] = useState(false);
+  const [ageConfirmMsg, setAgeConfirmMsg] = useState("");
+
+  useEffect(() => { if (profile?.coach_id) loadData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [communityId, profile?.coach_id]);
 
   const loadData = async () => {
     try {
@@ -187,30 +191,8 @@ export default function CoachCommunityDetail() {
     setAddOpen(true);
   };
 
-  const handleSave = async () => {
-    if (!selectedSport) {
-      toast({ title: "Select a sport", variant: "destructive" }); return;
-    }
-    // Audience guard — checked both directions
-    const allowsKids = (selectedSport as any).allows_kids !== false;
-    const allowsAdults = (selectedSport as any).allows_adults !== false;
-    // eslint-disable-next-line no-console
-    console.log("[Audience guard / coach save]", {
-      sport: (selectedSport as any).name, student_type: form.student_type,
-      allows_kids_raw: (selectedSport as any).allows_kids, allows_adults_raw: (selectedSport as any).allows_adults,
-      allowsKids, allowsAdults,
-    });
-    if (form.student_type === "kid" && !allowsKids) {
-      toast({ title: "Sport not available", description: `${(selectedSport as any).name} is for adults only — cannot enroll a kid.`, variant: "destructive" });
-      return;
-    }
-    if (form.student_type === "adult" && !allowsAdults) {
-      toast({ title: "Sport not available", description: `${(selectedSport as any).name} is for kids only — cannot enroll an adult.`, variant: "destructive" });
-      return;
-    }
-
+  const proceedCreateStudent = async () => {
     const { amount, sessions, payment_plan, pricing_type, renewal_trigger } = autoEnrollment;
-
     await createStudent.mutateAsync({
       student_id: getStudentId(),
       name: form.name,
@@ -235,6 +217,38 @@ export default function CoachCommunityDetail() {
     });
     setAddOpen(false);
     loadData();
+  };
+
+  const handleSave = async () => {
+    if (!selectedSport) {
+      toast({ title: "Select a sport", variant: "destructive" }); return;
+    }
+    const allowsKids = (selectedSport as any).allows_kids !== false;
+    const allowsAdults = (selectedSport as any).allows_adults !== false;
+    if (form.student_type === "kid" && !allowsKids) {
+      toast({ title: "Sport not available", description: `${(selectedSport as any).name} is for adults only — cannot enroll a kid.`, variant: "destructive" });
+      return;
+    }
+    if (form.student_type === "adult" && !allowsAdults) {
+      toast({ title: "Sport not available", description: `${(selectedSport as any).name} is for kids only — cannot enroll an adult.`, variant: "destructive" });
+      return;
+    }
+
+    const ageNum = parseInt(form.age) || 0;
+    if (ageNum > 0) {
+      if (ageNum < 18 && form.student_type === "adult") {
+        setAgeConfirmMsg(`Age entered is ${ageNum}, which is under 18, but you've selected Adult. Are you sure you want to continue?`);
+        setAgeConfirmOpen(true);
+        return;
+      }
+      if (ageNum >= 18 && form.student_type === "kid") {
+        setAgeConfirmMsg(`Age entered is ${ageNum}, which is 18 or above, but you've selected Kid. Are you sure you want to continue?`);
+        setAgeConfirmOpen(true);
+        return;
+      }
+    }
+
+    await proceedCreateStudent();
   };
 
   const getSportName = (sportId: string) => sports.find(s => s.id === sportId);
@@ -365,7 +379,13 @@ export default function CoachCommunityDetail() {
             <div><Label>Student Name *</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Rahul Kumar" /></div>
             <div><Label>Age *</Label><Input type="number" value={form.age} onChange={e => {
               const age = parseInt(e.target.value) || 0;
-              setForm(p => ({ ...p, age: e.target.value, age_group: age < 18 ? "kids" : "adults", time_slot_id: "" }));
+              setForm(p => ({
+                ...p,
+                age: e.target.value,
+                age_group: age < 18 ? "kids" : "adults",
+                student_type: age > 0 ? (age < 18 ? "kid" : "adult") : p.student_type,
+                time_slot_id: "",
+              }));
             }} placeholder="12" min={3} max={60} /></div>
             <div><Label>Parent Name *</Label><Input value={form.parent_name} onChange={e => setForm(p => ({ ...p, parent_name: e.target.value }))} placeholder="Suresh Kumar" /></div>
             <div><Label>WhatsApp Number *</Label><Input value={form.parent_whatsapp} onChange={e => setForm(p => ({ ...p, parent_whatsapp: e.target.value }))} placeholder="9876543210" maxLength={10} /></div>
@@ -458,6 +478,21 @@ export default function CoachCommunityDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={ageConfirmOpen} onOpenChange={setAgeConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Age and Student Type don't match</AlertDialogTitle>
+            <AlertDialogDescription>{ageConfirmMsg}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, Go Back</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => { setAgeConfirmOpen(false); await proceedCreateStudent(); }}>
+              Yes, Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

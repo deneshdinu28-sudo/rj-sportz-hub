@@ -336,7 +336,7 @@ export function useUpdateSportFull() {
       return { newVersionId, toNotify, sportName, newRate };
     },
 
-    onSuccess: (result, vars) => {
+    onSuccess: async (result, vars) => {
       qc.invalidateQueries({ queryKey: ["sports", vars.community_id] });
       qc.invalidateQueries({ queryKey: ["sportPricing", vars.community_id] });
       qc.invalidateQueries({ queryKey: ["sessionPacks"] });
@@ -344,15 +344,29 @@ export function useUpdateSportFull() {
       toast({ title: "Sport pricing updated!" });
 
       if (result?.toNotify?.length) {
+        // Pull the editable template from whatsapp_templates so admins can tweak it in Settings.
+        const { data: tpl } = await supabase
+          .from("whatsapp_templates")
+          .select("template, is_active")
+          .eq("template_id", "price_change_notification")
+          .maybeSingle();
+        const fallback = `📢 Pricing Update - RJ Sportz\n\nDear {parent_name},\n\nPricing for {sport_name} has been updated. Your current plan for {student_name} continues at your existing rate (₹{locked_price}) until it ends. From your next renewal the new rate of ₹{new_price} will apply.\n\nRJ Sportz Team`;
+        const tplBody = (tpl?.is_active !== false && tpl?.template) ? tpl.template : fallback;
+
         for (const s of result.toNotify) {
-          const msg = `📢 Pricing Update - RJ Sportz\n\nDear ${s.parent_name || "Parent"},\n\nPlease note that pricing for ${result.sportName} has been updated. Your current plan for ${s.name} continues as is at your existing rate until it ends. Starting from your next renewal, the new pricing will apply.\n\nSport: ${result.sportName}\nYour Current Rate: ₹${Number(s.locked_price) || 0}\nNew Rate (from next renewal): ₹${result.newRate}\n\nQuestions? Contact us anytime.\n\nRJ Sportz Team`;
+          const msg = tplBody
+            .split("{parent_name}").join(s.parent_name || "Parent")
+            .split("{student_name}").join(s.name || "your child")
+            .split("{sport_name}").join(result.sportName)
+            .split("{locked_price}").join(String(Number(s.locked_price) || 0))
+            .split("{new_price}").join(String(result.newRate));
           try {
             window.open(`https://wa.me/91${s.parent_whatsapp}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
-          } catch { /* ignore */ }
+          } catch { /* ignore popup blocker */ }
         }
         toast({
           title: `Price update — ${result.toNotify.length} parent(s) to notify`,
-          description: "WhatsApp tabs opened. Click send on each.",
+          description: "WhatsApp tabs opened with the pre-filled message. Click send on each.",
         });
       }
     },
