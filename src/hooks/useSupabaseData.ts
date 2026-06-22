@@ -355,11 +355,11 @@ export function useUpdateSportFull() {
 
         for (const s of result.toNotify) {
           const msg = tplBody
-            .replaceAll("{parent_name}", s.parent_name || "Parent")
-            .replaceAll("{student_name}", s.name || "your child")
-            .replaceAll("{sport_name}", result.sportName)
-            .replaceAll("{locked_price}", String(Number(s.locked_price) || 0))
-            .replaceAll("{new_price}", String(result.newRate));
+            .split("{parent_name}").join(s.parent_name || "Parent")
+            .split("{student_name}").join(s.name || "your child")
+            .split("{sport_name}").join(result.sportName)
+            .split("{locked_price}").join(String(Number(s.locked_price) || 0))
+            .split("{new_price}").join(String(result.newRate));
           try {
             window.open(`https://wa.me/91${s.parent_whatsapp}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
           } catch { /* ignore popup blocker */ }
