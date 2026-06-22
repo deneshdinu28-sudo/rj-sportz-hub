@@ -1046,6 +1046,22 @@ export default function CommunityDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Age vs student type mismatch confirmation */}
+      <AlertDialog open={ageConfirmOpen} onOpenChange={setAgeConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Age and Student Type don't match</AlertDialogTitle>
+            <AlertDialogDescription>{ageConfirmMsg}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, Go Back</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => { setAgeConfirmOpen(false); await proceedCreateStudent(); }}>
+              Yes, Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
