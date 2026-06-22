@@ -202,31 +202,7 @@ export default function CommunityDetail() {
     setAddStudentOpen(true);
   };
 
-  const handleSaveStudent = async () => {
-    // Audience guard — runs both at sport-select time AND at save time
-    const sp: any = selectedSport;
-    if (sp) {
-      const allowsKids = sp.allows_kids !== false; // treat null/undefined as true
-      const allowsAdults = sp.allows_adults !== false;
-      // eslint-disable-next-line no-console
-      console.log("[Audience guard / admin save]", {
-        sport: sp.name, student_type: studentForm.student_type,
-        allows_kids_raw: sp.allows_kids, allows_adults_raw: sp.allows_adults,
-        allowsKids, allowsAdults,
-      });
-      if (studentForm.student_type === "kid" && !allowsKids) {
-        toast({ title: "Sport not available", description: `${sp.name} is for adults only — cannot enroll a kid.`, variant: "destructive" });
-        return;
-      }
-      if (studentForm.student_type === "adult" && !allowsAdults) {
-        toast({ title: "Sport not available", description: `${sp.name} is for kids only — cannot enroll an adult.`, variant: "destructive" });
-        return;
-      }
-    }
-    if (sportPricingType === "session_pack" && !studentForm.selected_pack_id) {
-      toast({ title: "Pick a session pack", variant: "destructive" });
-      return;
-    }
+  const proceedCreateStudent = async () => {
     const { amount, sessions } = enrollmentPreview;
     const ageNum = parseInt(studentForm.age) || 10;
     await createStudent.mutateAsync({
@@ -252,6 +228,43 @@ export default function CommunityDetail() {
       sessions_remaining: sportRenewalTrigger === "session_based" ? sessions : 0,
     });
     setAddStudentOpen(false);
+  };
+
+  const handleSaveStudent = async () => {
+    // Audience guard — runs both at sport-select time AND at save time
+    const sp: any = selectedSport;
+    if (sp) {
+      const allowsKids = sp.allows_kids !== false;
+      const allowsAdults = sp.allows_adults !== false;
+      if (studentForm.student_type === "kid" && !allowsKids) {
+        toast({ title: "Sport not available", description: `${sp.name} is for adults only — cannot enroll a kid.`, variant: "destructive" });
+        return;
+      }
+      if (studentForm.student_type === "adult" && !allowsAdults) {
+        toast({ title: "Sport not available", description: `${sp.name} is for kids only — cannot enroll an adult.`, variant: "destructive" });
+        return;
+      }
+    }
+    if (sportPricingType === "session_pack" && !studentForm.selected_pack_id) {
+      toast({ title: "Pick a session pack", variant: "destructive" });
+      return;
+    }
+
+    // Age vs student_type mismatch check — confirm before saving
+    const ageNum = parseInt(studentForm.age) || 0;
+    if (ageNum > 0) {
+      if (ageNum < 18 && studentForm.student_type === "adult") {
+        setAgeConfirmMsg(`Age entered is ${ageNum}, which is under 18, but you've selected Adult. Are you sure you want to continue?`);
+        setAgeConfirmOpen(true);
+        return;
+      }
+      if (ageNum >= 18 && studentForm.student_type === "kid") {
+        setAgeConfirmMsg(`Age entered is ${ageNum}, which is 18 or above, but you've selected Kid. Are you sure you want to continue?`);
+        setAgeConfirmOpen(true);
+        return;
+      }
+    }
+    await proceedCreateStudent();
   };
 
 
