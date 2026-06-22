@@ -699,7 +699,13 @@ export default function CommunityDetail() {
             <div><Label>Student Name *</Label><Input value={studentForm.name} onChange={(e) => setStudentForm((p) => ({ ...p, name: e.target.value }))} placeholder="Rahul Kumar" /></div>
             <div><Label>Age *</Label><Input type="number" value={studentForm.age} onChange={(e) => {
               const age = parseInt(e.target.value) || 0;
-              setStudentForm((p) => ({ ...p, age: e.target.value, age_group: age < 18 ? "kids" : "adults", time_slot_id: "" }));
+              setStudentForm((p) => ({
+                ...p,
+                age: e.target.value,
+                age_group: age < 18 ? "kids" : "adults",
+                student_type: age > 0 ? (age < 18 ? "kid" : "adult") : p.student_type,
+                time_slot_id: "",
+              }));
             }} placeholder="12" min={3} max={60} /></div>
             <div><Label>Parent Name *</Label><Input value={studentForm.parent_name} onChange={(e) => setStudentForm((p) => ({ ...p, parent_name: e.target.value }))} placeholder="Suresh Kumar" /></div>
             <div><Label>WhatsApp Number *</Label><Input value={studentForm.parent_whatsapp} onChange={(e) => setStudentForm((p) => ({ ...p, parent_whatsapp: e.target.value }))} placeholder="9876543210" maxLength={10} /></div>
