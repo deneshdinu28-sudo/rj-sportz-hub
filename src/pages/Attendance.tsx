@@ -152,8 +152,8 @@ export default function Attendance() {
     return { present: vals.filter((v) => v === "present").length, absent: vals.filter((v) => v === "absent").length };
   }, [attendance]);
 
-  const canEdit = isPastDate && existingRecords && !isEditMode;
-  const isReadOnly = isPastDate && !isEditMode;
+  const canEdit = isPastDate && !isEditMode;
+  const isReadOnly = isPastDate && !isEditMode && existingRecords;
 
   if (isLoading) {
     return (
