@@ -75,7 +75,10 @@ export default function CoachCommunityDetail() {
     joining_date: new Date().toISOString().slice(0, 10),
   });
 
-  useEffect(() => { if (profile?.coach_id) loadData(); }, [communityId, profile]);
+  const [ageConfirmOpen, setAgeConfirmOpen] = useState(false);
+  const [ageConfirmMsg, setAgeConfirmMsg] = useState("");
+
+  useEffect(() => { if (profile?.coach_id) loadData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [communityId, profile?.coach_id]);
 
   const loadData = async () => {
     try {
