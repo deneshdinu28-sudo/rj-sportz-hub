@@ -259,17 +259,20 @@ export function useCreateSport() {
 
 // ─── Session Pack Pricing ───────────────────────────────────────────
 
-export function useSessionPacks(communityId?: string, sportId?: string) {
+export function useSessionPacks(_communityId?: string, sportId?: string) {
+  // NOTE: community filter intentionally ignored. A sport belongs to exactly one community,
+  // so filtering by sport_id is sufficient and avoids stale-community context bugs where the
+  // Add Student dialog (opened from one community page) would miss packs created elsewhere.
   return useQuery({
-    queryKey: ["sessionPacks", communityId, sportId],
+    queryKey: ["sessionPacks", sportId ?? "all"],
     queryFn: async () => {
-      let q = supabase.from("session_pack_pricing").select("*").order("session_count");
-      if (communityId) q = q.eq("community_id", communityId);
+      let q = supabase.from("session_pack_pricing").select("*").eq("is_active", true).order("session_count");
       if (sportId) q = q.eq("sport_id", sportId);
       const { data, error } = await q;
       if (error) throw error;
       return data;
     },
+    staleTime: 0,
   });
 }
 
