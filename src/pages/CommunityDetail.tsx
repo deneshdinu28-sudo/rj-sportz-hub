@@ -86,7 +86,7 @@ export default function CommunityDetail() {
   const [editSportConfigs, setEditSportConfigs] = useState<Record<string, PricingConfig>>({});
   const [editSportId, setEditSportId] = useState<string | null>(null);
   const [editSportCfg, setEditSportCfg] = useState<PricingConfig>(defaultPricingConfig());
-  const { data: commPacks = [] } = useSessionPacks(id);
+  const { data: commPacks = [], refetch: refetchPacks } = useSessionPacks(id);
   const updateSportFull = useUpdateSportFull();
 
   // Age vs student_type mismatch confirmation
