@@ -86,7 +86,7 @@ export default function CommunityDetail() {
   const [editSportConfigs, setEditSportConfigs] = useState<Record<string, PricingConfig>>({});
   const [editSportId, setEditSportId] = useState<string | null>(null);
   const [editSportCfg, setEditSportCfg] = useState<PricingConfig>(defaultPricingConfig());
-  const { data: commPacks = [] } = useSessionPacks(id);
+  const { data: commPacks = [], refetch: refetchPacks } = useSessionPacks(id);
   const updateSportFull = useUpdateSportFull();
 
   // Age vs student_type mismatch confirmation
@@ -681,7 +681,7 @@ export default function CommunityDetail() {
       </Dialog>
 
       {/* Add Student Modal */}
-      <Dialog open={addStudentOpen} onOpenChange={setAddStudentOpen}>
+      <Dialog open={addStudentOpen} onOpenChange={(v) => { setAddStudentOpen(v); if (v) refetchPacks(); }}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-auto">
           <DialogHeader><DialogTitle>Add New Student</DialogTitle></DialogHeader>
           <div className="space-y-4">
