@@ -681,7 +681,7 @@ export default function CommunityDetail() {
       </Dialog>
 
       {/* Add Student Modal */}
-      <Dialog open={addStudentOpen} onOpenChange={setAddStudentOpen}>
+      <Dialog open={addStudentOpen} onOpenChange={(v) => { setAddStudentOpen(v); if (v) refetchPacks(); }}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-auto">
           <DialogHeader><DialogTitle>Add New Student</DialogTitle></DialogHeader>
           <div className="space-y-4">
