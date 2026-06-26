@@ -322,6 +322,11 @@ export default function StudentDetail() {
                           <Badge className="bg-warning/15 text-warning border border-warning/30 hover:bg-warning/20">Renewal Due</Badge>
                         )}
                       </div>
+                      {Number((student as any).historical_sessions_before_migration) > 0 && (
+                        <div className="mt-1 p-2 rounded-md bg-muted/40 border border-border text-[11px] text-muted-foreground">
+                          📊 Historical attendance before session tracking: <span className="font-semibold text-foreground">{Number((student as any).historical_sessions_before_migration)} sessions</span> (not counted in current plan)
+                        </div>
+                      )}
                       {remaining <= 2 && (
                         <div className="pt-1">
                           <Button asChild size="sm" variant="outline" className="w-full gap-1 text-xs border-primary/40 text-primary hover:bg-primary/10">

@@ -46,6 +46,7 @@ export function pricingConfigToRows(cfg: PricingConfig, community_id: string, sp
     sessions_per_month: cfg.pricing_type === "duration_based" && cfg.renewal_trigger === "session_based" ? numOrNull(useAdult ? cfg.adult_sessions_per_month : cfg.kid_sessions_per_month) : null,
     renewal_days: cfg.renewal_trigger === "date_based" && cfg.pricing_type !== "duration_based" ? numOrNull(cfg.renewal_days) : null,
   };
+  const includeSessionCounts = cfg.pricing_type === "duration_based" && cfg.renewal_trigger === "session_based";
   const pricingRow: Record<string, any> = {
     community_id, sport_id,
     standard_1month: pick("standard_1month"),
@@ -66,6 +67,9 @@ export function pricingConfigToRows(cfg: PricingConfig, community_id: string, sp
     adult_premium_1month: num(cfg.adult_premium_1month),
     adult_premium_3month: num(cfg.adult_premium_3months),
     adult_premium_6month: num(cfg.adult_premium_6months),
+    sessions_1month: includeSessionCounts ? numOrNull(cfg.sessions_1month) : null,
+    sessions_3month: includeSessionCounts ? numOrNull(cfg.sessions_3month) : null,
+    sessions_6month: includeSessionCounts ? numOrNull(cfg.sessions_6month) : null,
   };
   const packRows = (cfg.pricing_type === "session_pack" ? cfg.packs : [])
     .filter((p) => p.pack_name && p.session_count)

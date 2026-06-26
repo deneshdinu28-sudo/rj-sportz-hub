@@ -113,6 +113,11 @@ export default function CoachStudentDetail() {
                     </div>
                     <p className="text-[10px] text-muted-foreground text-right">{pct}% complete</p>
                   </div>
+                  {Number((student as any).historical_sessions_before_migration) > 0 && (
+                    <div className="mt-1 p-2 rounded-md bg-muted/40 border border-border text-[11px] text-muted-foreground">
+                      📊 Historical attendance before session tracking: <span className="font-semibold text-foreground">{Number((student as any).historical_sessions_before_migration)} sessions</span> (not counted in current plan)
+                    </div>
+                  )}
                 </>
               );
             })() : (
