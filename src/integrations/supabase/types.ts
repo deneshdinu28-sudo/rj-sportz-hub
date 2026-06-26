@@ -630,6 +630,9 @@ export type Database = {
           premium_1month: number
           premium_3months: number
           premium_6months: number
+          sessions_1month: number | null
+          sessions_3month: number | null
+          sessions_6month: number | null
           sport_id: string
           standard_1month: number
           standard_3months: number
@@ -655,6 +658,9 @@ export type Database = {
           premium_1month?: number
           premium_3months?: number
           premium_6months?: number
+          sessions_1month?: number | null
+          sessions_3month?: number | null
+          sessions_6month?: number | null
           sport_id: string
           standard_1month?: number
           standard_3months?: number
@@ -680,6 +686,9 @@ export type Database = {
           premium_1month?: number
           premium_3months?: number
           premium_6months?: number
+          sessions_1month?: number | null
+          sessions_3month?: number | null
+          sessions_6month?: number | null
           sport_id?: string
           standard_1month?: number
           standard_3months?: number
@@ -850,6 +859,7 @@ export type Database = {
           days_overdue: number | null
           fee_amount: number
           fee_status: string
+          historical_sessions_before_migration: number
           hold_reason: string | null
           id: string
           is_active: boolean
@@ -893,6 +903,7 @@ export type Database = {
           days_overdue?: number | null
           fee_amount?: number
           fee_status?: string
+          historical_sessions_before_migration?: number
           hold_reason?: string | null
           id?: string
           is_active?: boolean
@@ -936,6 +947,7 @@ export type Database = {
           days_overdue?: number | null
           fee_amount?: number
           fee_status?: string
+          historical_sessions_before_migration?: number
           hold_reason?: string | null
           id?: string
           is_active?: boolean
