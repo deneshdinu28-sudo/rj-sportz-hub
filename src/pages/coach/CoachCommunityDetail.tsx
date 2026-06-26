@@ -170,10 +170,13 @@ export default function CoachCommunityDetail() {
     const newKey = `${isKid ? "kid" : "adult"}_${batch_type}_1month`;
     const legacyKey = `${batch_type}_1month`;
     const amount = Number(row[newKey]) || Number(row[legacyKey]) || 0;
-    const perMonth = renewal_trigger === "session_based"
-      ? Number(isKid ? sp.kid_sessions_per_month : sp.adult_sessions_per_month) || Number(sp.sessions_per_month) || 0
-      : 0;
-    return { amount, sessions: perMonth, payment_plan: "1m", pricing_type, renewal_trigger, planLabel: "1 Month (auto)" };
+    let sessions = 0;
+    if (renewal_trigger === "session_based") {
+      sessions = Number(row.sessions_1month)
+        || Number(isKid ? sp.kid_sessions_per_month : sp.adult_sessions_per_month)
+        || Number(sp.sessions_per_month) || 0;
+    }
+    return { amount, sessions, payment_plan: "1m", pricing_type, renewal_trigger, planLabel: "1 Month (auto)" };
   }, [selectedSport, selectedSlot, form.student_type, pricing, packs]);
 
   const getStudentId = () => {

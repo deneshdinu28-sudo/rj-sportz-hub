@@ -136,10 +136,18 @@ export default function CommunityDetail() {
     const newKey = `${prefix}_${plan === "1m" ? "1month" : plan === "3m" ? "3month" : "6month"}`;
     const legacyKey = `${batchType}_${plan === "1m" ? "1month" : plan === "3m" ? "3months" : "6months"}`;
     const amount = Number((studentPricing as any)[newKey]) || Number((studentPricing as any)[legacyKey]) || 0;
-    const perMonth = sportRenewalTrigger === "session_based"
-      ? Number(isKid ? sp.kid_sessions_per_month : sp.adult_sessions_per_month) || Number(sp.sessions_per_month) || 0
-      : 0;
-    return { amount, sessions: perMonth * months, planLabel: plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months" };
+    let sessions = 0;
+    if (sportRenewalTrigger === "session_based") {
+      const sessionsKey = plan === "1m" ? "sessions_1month" : plan === "3m" ? "sessions_3month" : "sessions_6month";
+      const explicit = Number((studentPricing as any)[sessionsKey]);
+      if (explicit > 0) {
+        sessions = explicit;
+      } else {
+        const perMonth = Number(isKid ? sp.kid_sessions_per_month : sp.adult_sessions_per_month) || Number(sp.sessions_per_month) || 0;
+        sessions = perMonth * months;
+      }
+    }
+    return { amount, sessions, planLabel: plan === "1m" ? "1 Month" : plan === "3m" ? "3 Months" : "6 Months" };
   };
 
   const enrollmentPreview = computeEnrollment();
@@ -339,6 +347,9 @@ export default function CommunityDetail() {
       adult_premium_6months: str(pr?.adult_premium_6month ?? pr?.premium_6months, def.adult_premium_6months),
       kid_sessions_per_month: str(sport.kid_sessions_per_month ?? sport.sessions_per_month, def.kid_sessions_per_month),
       adult_sessions_per_month: str(sport.adult_sessions_per_month ?? sport.sessions_per_month, def.adult_sessions_per_month),
+      sessions_1month: str(pr?.sessions_1month, def.sessions_1month),
+      sessions_3month: str(pr?.sessions_3month, def.sessions_3month),
+      sessions_6month: str(pr?.sessions_6month, def.sessions_6month),
       kid_custom_monthly_price: str(sport.kid_custom_monthly_price ?? sport.custom_monthly_price, def.kid_custom_monthly_price),
       kid_custom_monthly_sessions: str(sport.kid_custom_monthly_sessions ?? sport.custom_monthly_sessions, def.kid_custom_monthly_sessions),
       adult_custom_monthly_price: str(sport.adult_custom_monthly_price ?? sport.custom_monthly_price, def.adult_custom_monthly_price),

@@ -27,9 +27,13 @@ export interface PricingConfig {
   // duration_based — adult
   adult_standard_1month: string; adult_standard_3months: string; adult_standard_6months: string;
   adult_premium_1month: string; adult_premium_3months: string; adult_premium_6months: string;
-  // sessions per month (session_based + duration)
+  // sessions per month (session_based + duration) — legacy fallback
   kid_sessions_per_month: string;
   adult_sessions_per_month: string;
+  // sessions included per duration (duration_based + session_based) — shared across kid/adult/standard/premium
+  sessions_1month: string;
+  sessions_3month: string;
+  sessions_6month: string;
   // custom_monthly
   kid_custom_monthly_price: string; kid_custom_monthly_sessions: string;
   adult_custom_monthly_price: string; adult_custom_monthly_sessions: string;
@@ -50,6 +54,9 @@ export const defaultPricingConfig = (): PricingConfig => ({
   adult_premium_1month: "5000", adult_premium_3months: "13500", adult_premium_6months: "26000",
   kid_sessions_per_month: "8",
   adult_sessions_per_month: "8",
+  sessions_1month: "8",
+  sessions_3month: "24",
+  sessions_6month: "48",
   kid_custom_monthly_price: "2500", kid_custom_monthly_sessions: "8",
   adult_custom_monthly_price: "3000", adult_custom_monthly_sessions: "8",
   packs: [{
@@ -263,22 +270,25 @@ export default function SportPricingFields({ value, onChange }: Props) {
           </div>
         )}
 
-        {/* Session-based extras for duration_based */}
+        {/* Session-based extras for duration_based — explicit session counts per duration */}
         {value.renewal_trigger === "session_based" && value.pricing_type === "duration_based" && (
           <div className="space-y-2">
-            {showKid && (
+            <p className="text-xs font-semibold text-muted-foreground uppercase">Sessions Included Per Duration *</p>
+            <div className="grid grid-cols-3 gap-2">
               <div>
-                <Label className="text-xs">Kid — sessions per month *</Label>
-                <Input type="number" value={value.kid_sessions_per_month} onChange={(e) => set({ kid_sessions_per_month: e.target.value })} />
+                <Label className="text-xs">1 Month</Label>
+                <Input type="number" value={value.sessions_1month} onChange={(e) => set({ sessions_1month: e.target.value })} placeholder="8" />
               </div>
-            )}
-            {showAdult && (
               <div>
-                <Label className="text-xs">Adult — sessions per month *</Label>
-                <Input type="number" value={value.adult_sessions_per_month} onChange={(e) => set({ adult_sessions_per_month: e.target.value })} />
+                <Label className="text-xs">3 Months</Label>
+                <Input type="number" value={value.sessions_3month} onChange={(e) => set({ sessions_3month: e.target.value })} placeholder="24" />
               </div>
-            )}
-            <p className="text-[11px] text-muted-foreground">Used to calculate total sessions per plan (e.g. 3 months × 8 = 24).</p>
+              <div>
+                <Label className="text-xs">6 Months</Label>
+                <Input type="number" value={value.sessions_6month} onChange={(e) => set({ sessions_6month: e.target.value })} placeholder="48" />
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Total classes the student gets in each plan. Same number applies across Kid / Adult / Standard / Premium for a given duration.</p>
           </div>
         )}
 
