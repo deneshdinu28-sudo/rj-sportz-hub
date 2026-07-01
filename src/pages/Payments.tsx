@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { IndianRupee, AlertTriangle, CheckCircle, Clock, Phone, MessageSquare, Loader2, MoreVertical, Pause, X, Search, SlidersHorizontal, Download } from "lucide-react";
-import { useStudents, useCommunities, useSports, usePayments, useMarkPayment, useUpdateStudent, formatCurrencyFull, formatCurrency } from "@/hooks/useSupabaseData";
+import { useStudents, useCommunities, useSports, usePayments, useMarkPayment, useUpdateStudent, formatCurrencyFull, formatCurrency, detectPaymentPlan, type DetectedPlan } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 
 type Plan = "all" | "1m" | "3m" | "6m";
