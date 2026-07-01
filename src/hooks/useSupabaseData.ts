@@ -846,6 +846,7 @@ async function applySessionDeductions(records: Array<{ student_id: string; statu
     if (remaining === 0) updates.fee_status = "unpaid";
     await supabase.from("students").update(updates).eq("id", (s as any).id);
     if (remaining <= 2) warnings.push({
+      id: (s as any).id,
       name: (s as any).name,
       remaining,
       parent_whatsapp: (s as any).parent_whatsapp ?? null,
