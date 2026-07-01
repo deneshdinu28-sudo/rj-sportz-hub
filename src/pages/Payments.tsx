@@ -205,6 +205,15 @@ export default function Payments() {
   };
 
   const getDaysInfo = (student: typeof students[0]) => {
+    const isSession = (student as any).renewal_trigger === "session_based";
+    if (isSession && Number((student as any).sessions_remaining ?? 0) === 0) {
+      if (student.fee_status === "overdue") {
+        // days since we marked overdue = days since updated_at
+        const days = Math.max(0, Math.floor((Date.now() - new Date((student as any).updated_at).getTime()) / 86400000));
+        return { text: `Sessions Complete — ${days} days since renewal due`, days: -days, session: true as const };
+      }
+      return { text: "Sessions Complete — Renewal Needed", days: 0, session: true as const };
+    }
     if (!student.next_due_date) return { text: "—", days: 0 };
     const days = Math.ceil((new Date(student.next_due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     if (days === 0) return { text: "Due Today", days: 0 };
