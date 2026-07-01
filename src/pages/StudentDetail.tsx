@@ -299,7 +299,7 @@ export default function StudentDetail() {
                   const completed = Number((student as any).sessions_completed) || 0;
                   const remaining = Number((student as any).sessions_remaining) || 0;
                   const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
-                  const planLabel = (student as any).pricing_type === "custom_monthly" ? "Custom Monthly" : "Session Plan";
+                  const planLabel = ((student as any).current_pack_name as string) || ((student as any).pricing_type === "custom_monthly" ? "Custom Monthly" : "Session Plan");
                   return (
                     <>
                       <div className="flex justify-between items-center">
