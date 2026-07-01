@@ -98,13 +98,22 @@ export default function Payments() {
     return true;
   };
 
+  const isSessionRenewalDue = (s: typeof students[0]) =>
+    (s as any).renewal_trigger === "session_based" && Number((s as any).sessions_remaining ?? 0) === 0;
+
   const filteredPending = useMemo(
-    () => students.filter((s) => ["pending", "awaiting_first", "unpaid"].includes(s.fee_status) && matchesStudent(s)),
+    () => students.filter((s) => {
+      if (!matchesStudent(s)) return false;
+      if (["pending", "awaiting_first", "unpaid"].includes(s.fee_status)) return true;
+      // Session-based students with sessions exhausted → treat as pending renewal
+      if (isSessionRenewalDue(s) && s.fee_status !== "paid") return true;
+      return false;
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [students, searchTerm, communityFilter, sportFilter, planFilter]
   );
   const filteredOverdue = useMemo(
-    () => students.filter((s) => s.fee_status === "overdue" && matchesStudent(s)),
+    () => students.filter((s) => matchesStudent(s) && s.fee_status === "overdue"),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [students, searchTerm, communityFilter, sportFilter, planFilter]
   );
