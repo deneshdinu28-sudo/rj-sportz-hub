@@ -29,6 +29,8 @@ export default function Payments() {
   const [paymentForm, setPaymentForm] = useState({
     amount: "", payment_date: new Date().toISOString().slice(0, 10), payment_mode: "PhonePe", transaction_id: "",
   });
+  const [detected, setDetected] = useState<DetectedPlan>(null);
+  const [detecting, setDetecting] = useState(false);
 
   // ─── Search + filters ───
   const [searchInput, setSearchInput] = useState("");
