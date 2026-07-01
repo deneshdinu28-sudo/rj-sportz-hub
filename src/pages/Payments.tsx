@@ -549,11 +549,35 @@ export default function Payments() {
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Mark Payment - {markPaidStudent?.student_id}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="bg-muted/50 rounded-lg p-3 text-sm">
+            <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
               <p>Student: <strong>{markPaidStudent?.name}</strong></p>
-              <p>Plan: {markPaidStudent?.batch_type} {markPaidStudent?.payment_plan === "1m" ? "1 Month" : markPaidStudent?.payment_plan === "3m" ? "3 Months" : "6 Months"}</p>
+              {(markPaidStudent as any)?.renewal_trigger === "session_based" ? (
+                <>
+                  <p className="text-xs text-muted-foreground">Current Plan: {(markPaidStudent as any)?.current_pack_name || "Session Plan"}</p>
+                  {detected?.sessionCount ? (
+                    <>
+                      <p className="text-xs">Sessions: <strong>{detected.sessionCount} sessions will be added</strong></p>
+                      <p className="text-xs text-muted-foreground">Renewal: When all {detected.sessionCount} sessions are completed</p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Sessions will be added based on the detected plan</p>
+                  )}
+                </>
+              ) : (
+                <p>Plan: {markPaidStudent?.batch_type} {markPaidStudent?.payment_plan === "1m" ? "1 Month" : markPaidStudent?.payment_plan === "3m" ? "3 Months" : "6 Months"}</p>
+              )}
             </div>
-            <div><Label>Amount Received *</Label><Input type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))} /></div>
+            <div>
+              <Label>Amount Received *</Label>
+              <Input type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))} />
+              {detecting ? (
+                <p className="text-xs text-muted-foreground mt-1">Detecting plan…</p>
+              ) : detected ? (
+                <p className="text-xs text-primary mt-1">✓ Detected: {detected.label}</p>
+              ) : paymentForm.amount ? (
+                <p className="text-xs text-warning mt-1">⚠ Amount doesn't match any plan — please verify before saving</p>
+              ) : null}
+            </div>
             <div><Label>Payment Date *</Label><Input type="date" value={paymentForm.payment_date} onChange={(e) => setPaymentForm((p) => ({ ...p, payment_date: e.target.value }))} /></div>
             <div>
               <Label>Payment Mode *</Label>
