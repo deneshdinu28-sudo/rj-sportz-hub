@@ -104,7 +104,7 @@ export default function CoachStudentDetail() {
               const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
               return (
                 <>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span>Session Plan • {student.batch_type}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Plan</span><span>{((student as any).current_pack_name as string) || ((student as any).pricing_type === "custom_monthly" ? "Custom Monthly" : "Session Plan")} • {student.batch_type}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Sessions</span><span>{completed} of {total} completed</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Remaining</span><span className="font-semibold">{remaining}</span></div>
                   <div className="space-y-1 pt-1">
