@@ -160,10 +160,25 @@ export default function Payments() {
       payment_mode: "PhonePe",
       transaction_id: "",
     });
+    setDetected(null);
     setMarkPaidStudentId(student.id);
   };
 
   const markPaidStudent = students.find((s) => s.id === markPaidStudentId);
+
+  // Auto-detect plan whenever amount changes (debounced)
+  useEffect(() => {
+    if (!markPaidStudent || !paymentForm.amount) { setDetected(null); return; }
+    const amt = Number(paymentForm.amount);
+    if (!Number.isFinite(amt) || amt <= 0) { setDetected(null); return; }
+    let cancelled = false;
+    setDetecting(true);
+    const t = setTimeout(async () => {
+      const d = await detectPaymentPlan(amt, markPaidStudent);
+      if (!cancelled) { setDetected(d); setDetecting(false); }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [paymentForm.amount, markPaidStudentId]);
 
   const handleMarkPaid = async () => {
     if (!markPaidStudent) return;
@@ -174,7 +189,8 @@ export default function Payments() {
       payment_date: paymentForm.payment_date,
       payment_mode: paymentForm.payment_mode,
       transaction_id: paymentForm.transaction_id,
-      plan_period: markPaidStudent.payment_plan,
+      plan_period: detected?.kind === "duration" ? detected.planPeriod : markPaidStudent.payment_plan,
+      detected,
     });
     setMarkPaidStudentId(null);
   };
