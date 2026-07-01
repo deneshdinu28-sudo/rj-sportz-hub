@@ -748,27 +748,85 @@ export function useMarkPayment() {
 // ─── Attendance ─────────────────────────────────────────────────────
 
 // Build the wa.me reminder message text for low-sessions / completion alerts.
+// Prefers editable templates in whatsapp_templates (session_low_warning /
+// session_complete_reminder) so admins can tweak wording in Settings.
 export function buildSessionReminderMessage(opts: { studentName: string; parentName?: string; remaining: number }) {
   const greeting = `Dear ${opts.parentName || "Parent"},`;
   if (opts.remaining === 0) {
-    return `🏁 Session Plan Completed — RJ Sportz\n\n${greeting}\n\n${opts.studentName}'s current session plan has been completed (all sessions used).\n\nPlease renew the plan to continue uninterrupted training.\n\nReply to this message or contact us to renew.\n\nRJ Sportz Team`;
+    return `🔔 Plan Completed - Renewal Needed - RJ Sportz\n\n${greeting}\n\n${opts.studentName} has completed all sessions in the current plan. Please renew to continue classes.\n\nRJ Sportz Team`;
   }
-  return `⚠️ Low Sessions Reminder — RJ Sportz\n\n${greeting}\n\n${opts.studentName} has only ${opts.remaining} session(s) remaining in the current plan.\n\nPlease renew soon to avoid any break in training.\n\nReply to this message or contact us to renew.\n\nRJ Sportz Team`;
+  return `🔔 Sessions Running Low - RJ Sportz\n\n${greeting}\n\n${opts.studentName} has only ${opts.remaining} session(s) remaining in the current plan.\n\nPlease renew soon to avoid any gap in classes.\n\nRJ Sportz Team`;
+}
+
+// Build a "pricing options" text block for a student's sport (packs / custom monthly / durations).
+async function buildPricingOptions(student: any): Promise<string> {
+  const isKid = (student.student_type ?? "").toLowerCase() === "kid";
+  const batch = student.batch_type === "premium" ? "premium" : "standard";
+  if (student.pricing_type === "session_pack") {
+    const { data: packs } = await supabase
+      .from("session_pack_pricing").select("*").eq("sport_id", student.sport_id).eq("is_active", true).order("session_count");
+    if (!packs?.length) return "";
+    const field = isKid ? `kid_${batch}_price` : `adult_${batch}_price`;
+    return "Available Packs:\n" + packs.map((p: any) => `• ${p.pack_name} — ${p.session_count} sessions — ₹${Number(p[field] ?? p[`${batch}_price`]).toLocaleString("en-IN")}`).join("\n");
+  }
+  if (student.pricing_type === "custom_monthly") {
+    const { data: sport } = await supabase.from("sports")
+      .select("kid_custom_monthly_price,adult_custom_monthly_price,kid_custom_monthly_sessions,adult_custom_monthly_sessions,custom_monthly_price,custom_monthly_sessions")
+      .eq("id", student.sport_id).maybeSingle();
+    if (!sport) return "";
+    const price = Number((isKid ? sport.kid_custom_monthly_price : sport.adult_custom_monthly_price) ?? sport.custom_monthly_price ?? 0);
+    const sess = Number((isKid ? sport.kid_custom_monthly_sessions : sport.adult_custom_monthly_sessions) ?? sport.custom_monthly_sessions ?? 0);
+    return `Monthly Plan: ₹${price.toLocaleString("en-IN")} — ${sess} sessions`;
+  }
+  const { data: pricing } = await supabase.from("sport_pricing").select("*").eq("sport_id", student.sport_id).maybeSingle();
+  if (!pricing) return "";
+  const prefix = isKid ? "kid_" : "adult_";
+  const p1 = Number((pricing as any)[`${prefix}${batch}_1month`] || (pricing as any)[`${batch}_1month`] || 0);
+  const p3 = Number((pricing as any)[`${prefix}${batch}_3month`] || (pricing as any)[`${batch}_3months`] || 0);
+  const p6 = Number((pricing as any)[`${prefix}${batch}_6month`] || (pricing as any)[`${batch}_6months`] || 0);
+  return `Available Plans:\n• 1 Month — ₹${p1.toLocaleString("en-IN")}\n• 3 Months — ₹${p3.toLocaleString("en-IN")}\n• 6 Months — ₹${p6.toLocaleString("en-IN")}`;
+}
+
+async function renderSessionTemplate(templateKey: "session_low_warning" | "session_complete_reminder", student: any): Promise<string> {
+  const { data: tpl } = await supabase.from("whatsapp_templates").select("template,is_active").eq("template_id", templateKey).maybeSingle();
+  const [{ data: sport }, { data: settings }, pricing_options] = await Promise.all([
+    supabase.from("sports").select("name").eq("id", student.sport_id).maybeSingle(),
+    supabase.from("payment_settings").select("upi_number").limit(1).maybeSingle(),
+    buildPricingOptions(student),
+  ]);
+  const body = (tpl?.is_active !== false && tpl?.template) ? tpl.template : buildSessionReminderMessage({
+    studentName: student.name, parentName: student.parent_name, remaining: templateKey === "session_complete_reminder" ? 0 : 2,
+  });
+  return body
+    .split("{parent_name}").join(student.parent_name || "Parent")
+    .split("{student_name}").join(student.name || "")
+    .split("{student_id}").join(student.student_id || "")
+    .split("{sport_name}").join(sport?.name || "")
+    .split("{current_pack_name}").join(student.current_pack_name || "Session Plan")
+    .split("{pricing_options}").join(pricing_options)
+    .split("{upi_number}").join(settings?.upi_number || "");
 }
 
 // Open the WhatsApp link for each warning. Returns count of links opened.
-export function openSessionReminderLinks(warnings: Array<{ name: string; remaining: number; parent_whatsapp?: string | null; parent_name?: string | null }>) {
+export async function openSessionReminderLinks(warnings: Array<{ id?: string; name: string; remaining: number; parent_whatsapp?: string | null; parent_name?: string | null }>) {
   let opened = 0;
   for (const w of warnings) {
     if (!w.parent_whatsapp) continue;
-    const text = buildSessionReminderMessage({ studentName: w.name, parentName: w.parent_name ?? undefined, remaining: w.remaining });
+    let text: string;
+    if (w.id) {
+      const { data: st } = await supabase.from("students").select("*").eq("id", w.id).maybeSingle();
+      text = st ? await renderSessionTemplate(w.remaining === 0 ? "session_complete_reminder" : "session_low_warning", st)
+                : buildSessionReminderMessage({ studentName: w.name, parentName: w.parent_name ?? undefined, remaining: w.remaining });
+    } else {
+      text = buildSessionReminderMessage({ studentName: w.name, parentName: w.parent_name ?? undefined, remaining: w.remaining });
+    }
     const url = `https://wa.me/91${w.parent_whatsapp}?text=${encodeURIComponent(text)}`;
     try { window.open(url, "_blank", "noopener,noreferrer"); opened++; } catch { /* popup blocked */ }
   }
   return opened;
 }
 
-export type SessionWarning = { name: string; remaining: number; parent_whatsapp: string | null; parent_name: string | null };
+export type SessionWarning = { id: string; name: string; remaining: number; parent_whatsapp: string | null; parent_name: string | null };
 
 // Apply session deductions for session-based students when marked present.
 // Returns warnings for students hitting low (≤2) or zero remaining sessions.
