@@ -553,6 +553,78 @@ export function useStudentPayments(studentId: string | undefined) {
   });
 }
 
+// ─── Plan detection from paid amount ────────────────────────────────
+// Returns a detection object used by Mark Paid modal + useMarkPayment.
+
+export type DetectedPlan =
+  | { kind: "duration"; label: string; planPeriod: "1m" | "3m" | "6m"; feeAmount: number; sessionCount: number | null }
+  | { kind: "custom_monthly"; label: string; sessionCount: number; feeAmount: number }
+  | { kind: "session_pack"; label: string; sessionCount: number; feeAmount: number; packName: string; packId: string }
+  | null;
+
+export async function detectPaymentPlan(amount: number, student: any): Promise<DetectedPlan> {
+  const amt = Number(amount);
+  const isKid = (student.student_type ?? "").toLowerCase() === "kid";
+  const batch = student.batch_type === "premium" ? "premium" : "standard";
+  const pricingType = student.pricing_type ?? "duration_based";
+
+  if (pricingType === "duration_based") {
+    const { data: pricingRow } = await supabase
+      .from("sport_pricing").select("*").eq("sport_id", student.sport_id).maybeSingle();
+    if (!pricingRow) return null;
+    const prefix = isKid ? "kid_" : "adult_";
+    const candidates: Array<{ p: "1m" | "3m" | "6m"; k: string; s: string; sess: keyof typeof pricingRow }> = [
+      { p: "1m", k: `${prefix}${batch}_1month`, s: `${batch}_1month`, sess: "sessions_1month" as any },
+      { p: "3m", k: `${prefix}${batch}_3month`, s: `${batch}_3months`, sess: "sessions_3month" as any },
+      { p: "6m", k: `${prefix}${batch}_6month`, s: `${batch}_6months`, sess: "sessions_6month" as any },
+    ];
+    for (const c of candidates) {
+      const val = Number((pricingRow as any)[c.k] || (pricingRow as any)[c.s] || 0);
+      if (val > 0 && val === amt) {
+        const label = c.p === "1m" ? "1 Month Plan" : c.p === "3m" ? "3 Month Plan" : "6 Month Plan";
+        const sess = (pricingRow as any)[c.sess];
+        return { kind: "duration", label, planPeriod: c.p, feeAmount: val, sessionCount: sess ? Number(sess) : null };
+      }
+    }
+    return null;
+  }
+
+  if (pricingType === "custom_monthly") {
+    const { data: sport } = await supabase
+      .from("sports")
+      .select("kid_custom_monthly_price,adult_custom_monthly_price,kid_custom_monthly_sessions,adult_custom_monthly_sessions,custom_monthly_price,custom_monthly_sessions")
+      .eq("id", student.sport_id).maybeSingle();
+    if (!sport) return null;
+    const price = Number((isKid ? sport.kid_custom_monthly_price : sport.adult_custom_monthly_price) ?? sport.custom_monthly_price ?? 0);
+    const sess = Number((isKid ? sport.kid_custom_monthly_sessions : sport.adult_custom_monthly_sessions) ?? sport.custom_monthly_sessions ?? 0);
+    if (price > 0 && price === amt) {
+      return { kind: "custom_monthly", label: `Custom Monthly Plan (${sess} sessions)`, sessionCount: sess, feeAmount: price };
+    }
+    return null;
+  }
+
+  if (pricingType === "session_pack") {
+    const { data: packs } = await supabase
+      .from("session_pack_pricing").select("*").eq("sport_id", student.sport_id).eq("is_active", true);
+    const priceField = isKid
+      ? (batch === "standard" ? "kid_standard_price" : "kid_premium_price")
+      : (batch === "standard" ? "adult_standard_price" : "adult_premium_price");
+    const match = (packs || []).find((p: any) => Number(p[priceField] ?? p[`${batch}_price`]) === amt);
+    if (match) {
+      return {
+        kind: "session_pack",
+        label: `${match.pack_name} (${match.session_count} sessions)`,
+        sessionCount: Number(match.session_count),
+        feeAmount: amt,
+        packName: match.pack_name,
+        packId: match.id,
+      };
+    }
+    return null;
+  }
+  return null;
+}
+
 export function useMarkPayment() {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -560,40 +632,73 @@ export function useMarkPayment() {
     mutationFn: async (input: {
       student_id: string; student_code: string; amount: number; payment_date: string;
       payment_mode: string; transaction_id: string; plan_period: string;
+      detected?: DetectedPlan;
     }) => {
       const { data: student } = await supabase.from("students").select("*").eq("id", input.student_id).single();
       if (!student) throw new Error("Student not found");
 
-      // Auto-detect plan from amount using sport_pricing for the student's sport+community+batch
-      const { data: pricingRow } = await supabase
-        .from("sport_pricing")
-        .select("*")
-        .eq("sport_id", student.sport_id)
-        .eq("community_id", student.community_id)
-        .maybeSingle();
+      const detected = input.detected ?? (await detectPaymentPlan(input.amount, student));
+      const receiptNumber = `REC-${format(new Date(), "yyyy")}-${String(Date.now()).slice(-6)}`;
+      const isSessionBased = (student as any).renewal_trigger === "session_based";
 
+      if (isSessionBased) {
+        // Determine session count from detection (fallback to existing total_sessions_paid)
+        const sessions = detected?.sessionCount ?? Number((student as any).total_sessions_paid) ?? 0;
+        const planLabel = detected?.kind === "session_pack" ? detected.packName
+          : detected?.kind === "custom_monthly" ? "Custom Monthly"
+          : detected?.label ?? (student as any).current_pack_name ?? "Session Plan";
+        const planPeriod = detected?.kind === "duration" ? detected.planPeriod : (student.payment_plan || "1m");
+
+        const { data: sportRow } = await supabase.from("sports").select("current_price_version_id").eq("id", student.sport_id).maybeSingle();
+
+        const { data: payment, error: pErr } = await supabase.from("payments").insert({
+          student_id: input.student_id, student_code: input.student_code, receipt_number: receiptNumber,
+          amount: input.amount, payment_date: input.payment_date, payment_mode: input.payment_mode,
+          transaction_id: input.transaction_id || null, plan_period: planPeriod,
+          period_start: input.payment_date, period_end: null,
+          verification_method: "manual", verified_at: new Date().toISOString(),
+        }).select().single();
+        if (pErr) throw pErr;
+
+        const { error: sErr } = await supabase.from("students").update({
+          fee_status: "paid",
+          payment_start_date: input.payment_date,
+          payment_end_date: null,
+          next_due_date: null,
+          total_sessions_paid: sessions,
+          sessions_remaining: sessions,
+          sessions_completed: 0,
+          current_pack_name: planLabel,
+          locked_price: input.amount,
+          locked_price_sessions: sessions,
+          price_version_id: (sportRow as any)?.current_price_version_id ?? (student as any).price_version_id ?? null,
+          fee_amount: input.amount,
+          days_overdue: 0,
+        } as any).eq("id", input.student_id);
+        if (sErr) throw sErr;
+        return payment;
+      }
+
+      // ── DATE-BASED (existing logic, unchanged) ──
+      const { data: pricingRow } = await supabase
+        .from("sport_pricing").select("*").eq("sport_id", student.sport_id).eq("community_id", student.community_id).maybeSingle();
       const batchType = student.batch_type === "premium" ? "premium" : "standard";
-      const detectPlanFromAmount = (amt: number): string | null => {
+      const detectDurationPlan = (amt: number): string | null => {
         if (!pricingRow) return null;
         if (Number(amt) === Number(pricingRow[`${batchType}_1month`])) return "1m";
         if (Number(amt) === Number(pricingRow[`${batchType}_3months`])) return "3m";
         if (Number(amt) === Number(pricingRow[`${batchType}_6months`])) return "6m";
         return null;
       };
-
-      // Effective plan: 1) admin-selected plan_period, 2) detected from amount, 3) student's current plan
-      const detectedPlan = detectPlanFromAmount(input.amount);
+      const detectedPlan = detectDurationPlan(input.amount);
       const effectivePlan = input.plan_period || detectedPlan || student.payment_plan || "1m";
       const planAutoUpgraded = !!detectedPlan && detectedPlan !== student.payment_plan && !input.plan_period;
 
-      // CRITICAL: Calculate from original due date, NOT payment date
       const baseDate = student.next_due_date ? new Date(student.next_due_date) : new Date(input.payment_date);
       const monthsMap: Record<string, number> = { "1m": 1, "3m": 3, "6m": 6 };
       const months = monthsMap[effectivePlan] || 1;
       const periodEnd = addMonths(baseDate, months);
       const nextDue = addDays(periodEnd, 1);
-
-      const receiptNumber = `REC-${format(new Date(), "yyyy")}-${String(Date.now()).slice(-6)}`;
 
       const { data: payment, error: pErr } = await supabase.from("payments").insert({
         student_id: input.student_id, student_code: input.student_code, receipt_number: receiptNumber,
@@ -610,7 +715,6 @@ export function useMarkPayment() {
         payment_end_date: format(periodEnd, "yyyy-MM-dd"),
         next_due_date: format(nextDue, "yyyy-MM-dd"),
       };
-      // If plan was auto-upgraded by amount, persist the new plan and fee
       if (planAutoUpgraded && pricingRow) {
         const feeKey = `${batchType}_${effectivePlan === "1m" ? "1month" : effectivePlan === "3m" ? "3months" : "6months"}`;
         studentUpdate.payment_plan = effectivePlan;
@@ -621,18 +725,14 @@ export function useMarkPayment() {
       const { error: sErr } = await supabase.from("students").update(studentUpdate).eq("id", input.student_id);
       if (sErr) throw sErr;
 
-      // Log auto-upgrade
       if (planAutoUpgraded) {
         await supabase.from("plan_change_logs").insert({
-          student_id: student.id,
-          student_code: student.student_id,
-          previous_plan: student.payment_plan,
-          new_plan: effectivePlan,
+          student_id: student.id, student_code: student.student_id,
+          previous_plan: student.payment_plan, new_plan: effectivePlan,
           effective_from: format(baseDate, "yyyy-MM-dd"),
           note: "Plan auto-upgraded based on payment amount received",
         });
       }
-
       return payment;
     },
     onSuccess: () => {
@@ -648,27 +748,85 @@ export function useMarkPayment() {
 // ─── Attendance ─────────────────────────────────────────────────────
 
 // Build the wa.me reminder message text for low-sessions / completion alerts.
+// Prefers editable templates in whatsapp_templates (session_low_warning /
+// session_complete_reminder) so admins can tweak wording in Settings.
 export function buildSessionReminderMessage(opts: { studentName: string; parentName?: string; remaining: number }) {
   const greeting = `Dear ${opts.parentName || "Parent"},`;
   if (opts.remaining === 0) {
-    return `🏁 Session Plan Completed — RJ Sportz\n\n${greeting}\n\n${opts.studentName}'s current session plan has been completed (all sessions used).\n\nPlease renew the plan to continue uninterrupted training.\n\nReply to this message or contact us to renew.\n\nRJ Sportz Team`;
+    return `🔔 Plan Completed - Renewal Needed - RJ Sportz\n\n${greeting}\n\n${opts.studentName} has completed all sessions in the current plan. Please renew to continue classes.\n\nRJ Sportz Team`;
   }
-  return `⚠️ Low Sessions Reminder — RJ Sportz\n\n${greeting}\n\n${opts.studentName} has only ${opts.remaining} session(s) remaining in the current plan.\n\nPlease renew soon to avoid any break in training.\n\nReply to this message or contact us to renew.\n\nRJ Sportz Team`;
+  return `🔔 Sessions Running Low - RJ Sportz\n\n${greeting}\n\n${opts.studentName} has only ${opts.remaining} session(s) remaining in the current plan.\n\nPlease renew soon to avoid any gap in classes.\n\nRJ Sportz Team`;
+}
+
+// Build a "pricing options" text block for a student's sport (packs / custom monthly / durations).
+async function buildPricingOptions(student: any): Promise<string> {
+  const isKid = (student.student_type ?? "").toLowerCase() === "kid";
+  const batch = student.batch_type === "premium" ? "premium" : "standard";
+  if (student.pricing_type === "session_pack") {
+    const { data: packs } = await supabase
+      .from("session_pack_pricing").select("*").eq("sport_id", student.sport_id).eq("is_active", true).order("session_count");
+    if (!packs?.length) return "";
+    const field = isKid ? `kid_${batch}_price` : `adult_${batch}_price`;
+    return "Available Packs:\n" + packs.map((p: any) => `• ${p.pack_name} — ${p.session_count} sessions — ₹${Number(p[field] ?? p[`${batch}_price`]).toLocaleString("en-IN")}`).join("\n");
+  }
+  if (student.pricing_type === "custom_monthly") {
+    const { data: sport } = await supabase.from("sports")
+      .select("kid_custom_monthly_price,adult_custom_monthly_price,kid_custom_monthly_sessions,adult_custom_monthly_sessions,custom_monthly_price,custom_monthly_sessions")
+      .eq("id", student.sport_id).maybeSingle();
+    if (!sport) return "";
+    const price = Number((isKid ? sport.kid_custom_monthly_price : sport.adult_custom_monthly_price) ?? sport.custom_monthly_price ?? 0);
+    const sess = Number((isKid ? sport.kid_custom_monthly_sessions : sport.adult_custom_monthly_sessions) ?? sport.custom_monthly_sessions ?? 0);
+    return `Monthly Plan: ₹${price.toLocaleString("en-IN")} — ${sess} sessions`;
+  }
+  const { data: pricing } = await supabase.from("sport_pricing").select("*").eq("sport_id", student.sport_id).maybeSingle();
+  if (!pricing) return "";
+  const prefix = isKid ? "kid_" : "adult_";
+  const p1 = Number((pricing as any)[`${prefix}${batch}_1month`] || (pricing as any)[`${batch}_1month`] || 0);
+  const p3 = Number((pricing as any)[`${prefix}${batch}_3month`] || (pricing as any)[`${batch}_3months`] || 0);
+  const p6 = Number((pricing as any)[`${prefix}${batch}_6month`] || (pricing as any)[`${batch}_6months`] || 0);
+  return `Available Plans:\n• 1 Month — ₹${p1.toLocaleString("en-IN")}\n• 3 Months — ₹${p3.toLocaleString("en-IN")}\n• 6 Months — ₹${p6.toLocaleString("en-IN")}`;
+}
+
+async function renderSessionTemplate(templateKey: "session_low_warning" | "session_complete_reminder", student: any): Promise<string> {
+  const { data: tpl } = await supabase.from("whatsapp_templates").select("template,is_active").eq("template_id", templateKey).maybeSingle();
+  const [{ data: sport }, { data: settings }, pricing_options] = await Promise.all([
+    supabase.from("sports").select("name").eq("id", student.sport_id).maybeSingle(),
+    supabase.from("payment_settings").select("upi_number").limit(1).maybeSingle(),
+    buildPricingOptions(student),
+  ]);
+  const body = (tpl?.is_active !== false && tpl?.template) ? tpl.template : buildSessionReminderMessage({
+    studentName: student.name, parentName: student.parent_name, remaining: templateKey === "session_complete_reminder" ? 0 : 2,
+  });
+  return body
+    .split("{parent_name}").join(student.parent_name || "Parent")
+    .split("{student_name}").join(student.name || "")
+    .split("{student_id}").join(student.student_id || "")
+    .split("{sport_name}").join(sport?.name || "")
+    .split("{current_pack_name}").join(student.current_pack_name || "Session Plan")
+    .split("{pricing_options}").join(pricing_options)
+    .split("{upi_number}").join(settings?.upi_number || "");
 }
 
 // Open the WhatsApp link for each warning. Returns count of links opened.
-export function openSessionReminderLinks(warnings: Array<{ name: string; remaining: number; parent_whatsapp?: string | null; parent_name?: string | null }>) {
+export async function openSessionReminderLinks(warnings: Array<{ id?: string; name: string; remaining: number; parent_whatsapp?: string | null; parent_name?: string | null }>) {
   let opened = 0;
   for (const w of warnings) {
     if (!w.parent_whatsapp) continue;
-    const text = buildSessionReminderMessage({ studentName: w.name, parentName: w.parent_name ?? undefined, remaining: w.remaining });
+    let text: string;
+    if (w.id) {
+      const { data: st } = await supabase.from("students").select("*").eq("id", w.id).maybeSingle();
+      text = st ? await renderSessionTemplate(w.remaining === 0 ? "session_complete_reminder" : "session_low_warning", st)
+                : buildSessionReminderMessage({ studentName: w.name, parentName: w.parent_name ?? undefined, remaining: w.remaining });
+    } else {
+      text = buildSessionReminderMessage({ studentName: w.name, parentName: w.parent_name ?? undefined, remaining: w.remaining });
+    }
     const url = `https://wa.me/91${w.parent_whatsapp}?text=${encodeURIComponent(text)}`;
     try { window.open(url, "_blank", "noopener,noreferrer"); opened++; } catch { /* popup blocked */ }
   }
   return opened;
 }
 
-export type SessionWarning = { name: string; remaining: number; parent_whatsapp: string | null; parent_name: string | null };
+export type SessionWarning = { id: string; name: string; remaining: number; parent_whatsapp: string | null; parent_name: string | null };
 
 // Apply session deductions for session-based students when marked present.
 // Returns warnings for students hitting low (≤2) or zero remaining sessions.
@@ -688,6 +846,7 @@ async function applySessionDeductions(records: Array<{ student_id: string; statu
     if (remaining === 0) updates.fee_status = "unpaid";
     await supabase.from("students").update(updates).eq("id", (s as any).id);
     if (remaining <= 2) warnings.push({
+      id: (s as any).id,
       name: (s as any).name,
       remaining,
       parent_whatsapp: (s as any).parent_whatsapp ?? null,

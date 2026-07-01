@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { IndianRupee, AlertTriangle, CheckCircle, Clock, Phone, MessageSquare, Loader2, MoreVertical, Pause, X, Search, SlidersHorizontal, Download } from "lucide-react";
-import { useStudents, useCommunities, useSports, usePayments, useMarkPayment, useUpdateStudent, formatCurrencyFull, formatCurrency } from "@/hooks/useSupabaseData";
+import { useStudents, useCommunities, useSports, usePayments, useMarkPayment, useUpdateStudent, formatCurrencyFull, formatCurrency, detectPaymentPlan, type DetectedPlan } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 
 type Plan = "all" | "1m" | "3m" | "6m";
@@ -29,6 +29,8 @@ export default function Payments() {
   const [paymentForm, setPaymentForm] = useState({
     amount: "", payment_date: new Date().toISOString().slice(0, 10), payment_mode: "PhonePe", transaction_id: "",
   });
+  const [detected, setDetected] = useState<DetectedPlan>(null);
+  const [detecting, setDetecting] = useState(false);
 
   // ─── Search + filters ───
   const [searchInput, setSearchInput] = useState("");
@@ -98,13 +100,22 @@ export default function Payments() {
     return true;
   };
 
+  const isSessionRenewalDue = (s: typeof students[0]) =>
+    (s as any).renewal_trigger === "session_based" && Number((s as any).sessions_remaining ?? 0) === 0;
+
   const filteredPending = useMemo(
-    () => students.filter((s) => ["pending", "awaiting_first", "unpaid"].includes(s.fee_status) && matchesStudent(s)),
+    () => students.filter((s) => {
+      if (!matchesStudent(s)) return false;
+      if (["pending", "awaiting_first", "unpaid"].includes(s.fee_status)) return true;
+      // Session-based students with sessions exhausted → treat as pending renewal
+      if (isSessionRenewalDue(s) && s.fee_status !== "paid") return true;
+      return false;
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [students, searchTerm, communityFilter, sportFilter, planFilter]
   );
   const filteredOverdue = useMemo(
-    () => students.filter((s) => s.fee_status === "overdue" && matchesStudent(s)),
+    () => students.filter((s) => matchesStudent(s) && s.fee_status === "overdue"),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [students, searchTerm, communityFilter, sportFilter, planFilter]
   );
@@ -149,10 +160,25 @@ export default function Payments() {
       payment_mode: "PhonePe",
       transaction_id: "",
     });
+    setDetected(null);
     setMarkPaidStudentId(student.id);
   };
 
   const markPaidStudent = students.find((s) => s.id === markPaidStudentId);
+
+  // Auto-detect plan whenever amount changes (debounced)
+  useEffect(() => {
+    if (!markPaidStudent || !paymentForm.amount) { setDetected(null); return; }
+    const amt = Number(paymentForm.amount);
+    if (!Number.isFinite(amt) || amt <= 0) { setDetected(null); return; }
+    let cancelled = false;
+    setDetecting(true);
+    const t = setTimeout(async () => {
+      const d = await detectPaymentPlan(amt, markPaidStudent);
+      if (!cancelled) { setDetected(d); setDetecting(false); }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [paymentForm.amount, markPaidStudentId]);
 
   const handleMarkPaid = async () => {
     if (!markPaidStudent) return;
@@ -163,7 +189,8 @@ export default function Payments() {
       payment_date: paymentForm.payment_date,
       payment_mode: paymentForm.payment_mode,
       transaction_id: paymentForm.transaction_id,
-      plan_period: markPaidStudent.payment_plan,
+      plan_period: detected?.kind === "duration" ? detected.planPeriod : markPaidStudent.payment_plan,
+      detected,
     });
     setMarkPaidStudentId(null);
   };
@@ -178,6 +205,15 @@ export default function Payments() {
   };
 
   const getDaysInfo = (student: typeof students[0]) => {
+    const isSession = (student as any).renewal_trigger === "session_based";
+    if (isSession && Number((student as any).sessions_remaining ?? 0) === 0) {
+      if (student.fee_status === "overdue") {
+        // days since we marked overdue = days since updated_at
+        const days = Math.max(0, Math.floor((Date.now() - new Date((student as any).updated_at).getTime()) / 86400000));
+        return { text: `Sessions Complete — ${days} days since renewal due`, days: -days, session: true as const };
+      }
+      return { text: "Sessions Complete — Renewal Needed", days: 0, session: true as const };
+    }
     if (!student.next_due_date) return { text: "—", days: 0 };
     const days = Math.ceil((new Date(student.next_due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     if (days === 0) return { text: "Due Today", days: 0 };
@@ -513,11 +549,35 @@ export default function Payments() {
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Mark Payment - {markPaidStudent?.student_id}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="bg-muted/50 rounded-lg p-3 text-sm">
+            <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
               <p>Student: <strong>{markPaidStudent?.name}</strong></p>
-              <p>Plan: {markPaidStudent?.batch_type} {markPaidStudent?.payment_plan === "1m" ? "1 Month" : markPaidStudent?.payment_plan === "3m" ? "3 Months" : "6 Months"}</p>
+              {(markPaidStudent as any)?.renewal_trigger === "session_based" ? (
+                <>
+                  <p className="text-xs text-muted-foreground">Current Plan: {(markPaidStudent as any)?.current_pack_name || "Session Plan"}</p>
+                  {detected?.sessionCount ? (
+                    <>
+                      <p className="text-xs">Sessions: <strong>{detected.sessionCount} sessions will be added</strong></p>
+                      <p className="text-xs text-muted-foreground">Renewal: When all {detected.sessionCount} sessions are completed</p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Sessions will be added based on the detected plan</p>
+                  )}
+                </>
+              ) : (
+                <p>Plan: {markPaidStudent?.batch_type} {markPaidStudent?.payment_plan === "1m" ? "1 Month" : markPaidStudent?.payment_plan === "3m" ? "3 Months" : "6 Months"}</p>
+              )}
             </div>
-            <div><Label>Amount Received *</Label><Input type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))} /></div>
+            <div>
+              <Label>Amount Received *</Label>
+              <Input type="number" value={paymentForm.amount} onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))} />
+              {detecting ? (
+                <p className="text-xs text-muted-foreground mt-1">Detecting plan…</p>
+              ) : detected ? (
+                <p className="text-xs text-primary mt-1">✓ Detected: {detected.label}</p>
+              ) : paymentForm.amount ? (
+                <p className="text-xs text-warning mt-1">⚠ Amount doesn't match any plan — please verify before saving</p>
+              ) : null}
+            </div>
             <div><Label>Payment Date *</Label><Input type="date" value={paymentForm.payment_date} onChange={(e) => setPaymentForm((p) => ({ ...p, payment_date: e.target.value }))} /></div>
             <div>
               <Label>Payment Mode *</Label>
