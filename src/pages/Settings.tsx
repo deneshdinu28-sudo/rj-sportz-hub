@@ -82,6 +82,20 @@ const DEFAULT_TEMPLATES: Omit<WhatsAppTemplate, "id">[] = [
     template: `🏸 Welcome to RJ Sportz - Coach Portal\n\nDear Coach,\n\nYour coach profile has been created!\n\nCoach ID: {coach_id}\nSport: {sport_name}\n\nNext Steps:\n1. Visit the coach signup page\n2. Enter your Coach ID: {coach_id}\n3. Complete your registration\n\nWelcome to the team!\nRJ Sportz`,
     variables: ["coach_id", "sport_name"],
   },
+  {
+    template_id: "session_low_warning",
+    name: "Low Sessions Warning",
+    description: "Sent when student has 2 sessions remaining",
+    template: `🔔 Sessions Running Low - RJ Sportz\n\nDear {parent_name},\n\n{student_name} has only 2 sessions remaining in their current plan.\n\nStudent ID: {student_id}\nSport: {sport_name}\nSessions Remaining: 2\n\nPlease renew soon to avoid any gap in classes.\n\n{pricing_options}\n\nPay to:\n📱 PhonePe/GPay: {upi_number}\n\nRJ Sportz Team`,
+    variables: ["parent_name", "student_name", "student_id", "sport_name", "pricing_options", "upi_number"],
+  },
+  {
+    template_id: "session_complete_reminder",
+    name: "Session Plan Completed",
+    description: "Sent when all sessions in current plan are used",
+    template: `🔔 Plan Completed - Renewal Needed - RJ Sportz\n\nDear {parent_name},\n\n{student_name} has completed all sessions in their current plan. Please renew to continue classes.\n\nStudent ID: {student_id}\nSport: {sport_name}\nPlan Completed: {current_pack_name}\n\n{pricing_options}\n\nPay to:\n📱 PhonePe/GPay: {upi_number}\n\nAfter payment reply with:\n1. Screenshot\n2. Student ID: {student_id}\n\nRJ Sportz Team`,
+    variables: ["parent_name", "student_name", "student_id", "sport_name", "current_pack_name", "pricing_options", "upi_number"],
+  },
 ];
 
 const SAMPLE_DATA: Record<string, string> = {
