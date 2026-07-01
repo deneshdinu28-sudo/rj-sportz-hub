@@ -468,6 +468,7 @@ export function useCreateStudent() {
       payment_plan: string; fee_amount: number; joining_date: string; batch_time: string;
       pricing_type?: string; renewal_trigger?: string;
       total_sessions_paid?: number; sessions_remaining?: number;
+      current_pack_name?: string;
     }) => {
       // Snapshot the sport's current price version so future price changes
       // don't retroactively change this student's locked-in amount.
@@ -494,6 +495,7 @@ export function useCreateStudent() {
         locked_price: input.fee_amount,
         locked_price_sessions: input.total_sessions_paid ?? 0,
         price_version_id: priceVersionId,
+        current_pack_name: input.current_pack_name ?? null,
       } as never).select().single();
 
       if (error) throw error;
