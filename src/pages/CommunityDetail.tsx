@@ -211,7 +211,7 @@ export default function CommunityDetail() {
   };
 
   const proceedCreateStudent = async () => {
-    const { amount, sessions } = enrollmentPreview;
+    const { amount, sessions, planLabel } = enrollmentPreview;
     const ageNum = parseInt(studentForm.age) || 10;
     await createStudent.mutateAsync({
       student_id: getStudentId(),
@@ -234,6 +234,7 @@ export default function CommunityDetail() {
       renewal_trigger: sportRenewalTrigger,
       total_sessions_paid: sportRenewalTrigger === "session_based" ? sessions : 0,
       sessions_remaining: sportRenewalTrigger === "session_based" ? sessions : 0,
+      current_pack_name: planLabel || null,
     });
     setAddStudentOpen(false);
   };
