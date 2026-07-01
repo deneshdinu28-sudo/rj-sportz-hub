@@ -195,7 +195,7 @@ export default function CoachCommunityDetail() {
   };
 
   const proceedCreateStudent = async () => {
-    const { amount, sessions, payment_plan, pricing_type, renewal_trigger } = autoEnrollment;
+    const { amount, sessions, payment_plan, pricing_type, renewal_trigger, planLabel } = autoEnrollment;
     await createStudent.mutateAsync({
       student_id: getStudentId(),
       name: form.name,
@@ -217,6 +217,7 @@ export default function CoachCommunityDetail() {
       renewal_trigger,
       total_sessions_paid: renewal_trigger === "session_based" ? sessions : 0,
       sessions_remaining: renewal_trigger === "session_based" ? sessions : 0,
+      current_pack_name: (planLabel || "").replace(/\s*\(auto\)\s*$/i, "") || null,
     });
     setAddOpen(false);
     loadData();
